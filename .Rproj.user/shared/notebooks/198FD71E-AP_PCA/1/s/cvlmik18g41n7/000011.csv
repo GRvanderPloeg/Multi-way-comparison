@@ -1,0 +1,8 @@
+"0","d = vegdist(df, method=""bray"")"
+"0","BC_pcoa = ape::pcoa(d)"
+"0",""
+"0","BC_plotdata = BC_pcoa$vectors %>% as_tibble() %>% select(Axis.1, Axis.2) %>% mutate(sampleID = sampleOrder) %>% left_join(sampleMeta)"
+"1","[38;5;255mJoining with `by = join_by(sampleID)`[39m
+"
+"0","BCplot = BC_plotdata %>% ggplot(aes(x=Axis.1,y=Axis.2,col=as.factor(group))) + geom_point()"
+"0","BCplot"

@@ -1,0 +1,3 @@
+"0","# result = parafac4microbiome::assessModelQuality(milkMetab_df_bmi, numRepetitions=10, numCores=parallel::detectCores())"
+"0","# result = parafac4microbiome::assessModelStability(milkMetab_df_bmi, numFolds=10, numCores=parallel::detectCores())"
+"0","milkMetab_parafac = parafac4microbiome::parafac(milkMetab_df_bmi, nfac=1, nstart=100)"

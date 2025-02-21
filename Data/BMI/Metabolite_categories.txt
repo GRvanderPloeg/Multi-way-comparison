@@ -1,0 +1,73 @@
+Metabolite	Class
+Alanine	Amino acids and derivatives
+Betaine	Amino acids and derivatives
+Cysteine	Amino acids and derivatives
+Glutamine	Amino acids and derivatives
+Lysine	Amino acids and derivatives
+Methionine	Amino acids and derivatives
+Taurine	Amino acids and derivatives
+Threonine	Amino acids and derivatives
+Valine	Amino acids and derivatives
+Tyrosine	Amino acids and derivatives
+2-Aminobutyrate	Amino acids and derivatives
+Glutamate	Amino acids and derivatives
+Aspartate	Amino acids and derivatives
+Leucine	Amino acids and derivatives
+Methionine	Amino acids and derivatives
+Carnitine	Amino acids and derivatives
+O-Acetylcarnitine	Amino acids and derivatives
+Phenylalanine	Amino acids and derivatives
+Isoleucine	Amino acids and derivatives
+Urea	Amino acids and derivatives
+2-Hydroxybutyrate	Amino acids and derivatives
+τ-Methylhistidine	Amino acids and derivatives
+Citrate	Energy related
+Acetone	Energy related
+Creatine	Energy related
+Creatinine	Energy related
+Formate	Energy related
+Fumarate	Energy related
+Lactate	Energy related
+Pyruvate	Energy related
+Succinate	Energy related
+2-Oxoglutarate	Energy related
+cis-Aconitate	Energy related
+Creatine phosphate	Energy related
+Nicotinamide ribotide	Energy related
+Acetoin	Microbially derived
+Pantothenate	Food derived
+Caffeine	Food derived
+Hippurate	Food derived
+Galactose	Sugars
+Glucose	Sugars
+Lactose	Sugars
+Fucose	Sugars
+myo-Inositol	Sugars
+2-Fucosyllactose	Oligosaccharides
+3-Fucosyllactose	Oligosaccharides
+3SL partial	Oligosaccharides
+6SL partial	Oligosaccharides
+LDFT	Oligosaccharides
+LNDFH I	Oligosaccharides
+LNDFH II	Oligosaccharides
+LNT	Oligosaccharides
+LNFP I	Oligosaccharides
+LNnT	Oligosaccharides
+Unk. HMO 1.70 Sialylated	Oligosaccharides
+Unk. HMO 5.076	Oligosaccharides
+Unk. HMO 5.09	Oligosaccharides
+Unk. HMO 5.10	Oligosaccharides
+Unk. HMO 5.11	Oligosaccharides
+Unk. HMO 5.29	Oligosaccharides
+Unk. HMO 5.359	Oligosaccharides
+DSLNT partial	Oligosaccharides
+Acetate	Fatty acids and derivatives
+Butyrate	Fatty acids and derivatives
+Caprate	Fatty acids and derivatives
+Caprylate	Fatty acids and derivatives
+O-Phosphocholine	Fatty acids and derivatives
+sn-Glycero-3-phosphocholine	Fatty acids and derivatives
+Ethanolamine	Fatty acids and derivatives
+Choline	Fatty acids and derivatives
+Citicoline	Fatty acids and derivatives
+Acetaminophen	Pharmaceuticals

@@ -1,0 +1,54 @@
+Num samples: 39
+Num observations: 471
+Total count: 279,756
+Table density (fraction of non-zero values): 0.221
+
+Counts/sample summary:
+ Min: 1.000
+ Max: 15,383.000
+ Median: 8,230.000
+ Mean: 7,173.231
+ Std. dev.: 5,075.231
+ Sample Metadata Categories: None provided
+ Observation Metadata Categories: taxonomy
+
+Counts/sample detail:
+bl.isol.S16.S29: 1.000
+pcr.ctrl.1: 1.000
+bl.isol.S1.S15: 2.000
+T8: 9.000
+bl.isol.T5.T9: 10.000
+T6: 12.000
+exp.ctrl.mswab: 14.000
+T7: 16.000
+T9: 27.000
+S21: 41.000
+T5: 256.000
+S3: 2,611.000
+S24: 6,619.000
+S5: 6,857.000
+S1: 7,240.000
+S25: 7,456.000
+S10: 7,880.000
+S17: 7,939.000
+S6: 7,971.000
+S12: 8,230.000
+S22: 8,237.000
+S29: 8,293.000
+S18: 8,649.000
+S11: 9,612.000
+S20: 9,646.000
+S19: 10,013.000
+S8: 10,666.000
+S23: 10,731.000
+S14: 10,971.000
+S4: 11,469.000
+S15: 11,583.000
+S28: 11,636.000
+S26: 11,793.000
+S7: 12,299.000
+S13: 13,111.000
+S2: 13,571.000
+S9: 13,739.000
+S16: 15,162.000
+S27: 15,383.000

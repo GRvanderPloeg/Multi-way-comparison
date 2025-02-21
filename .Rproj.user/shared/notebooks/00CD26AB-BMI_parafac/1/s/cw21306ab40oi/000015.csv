@@ -1,0 +1,8 @@
+"0","prepMode1 = homogenized_subjectMeta_bmi %>% mutate(Component_1 = milkMetab_parafac$Fac[[1]]) %>% arrange(Secretor,subject) %>% mutate(index=1:nrow(.))"
+"0","prepMode2 = milkMetab_featureMeta %>% mutate(Component_1 = milkMetab_parafac$Fac[[2]]) %>% arrange(Class, Metabolite) %>% mutate(index=1:nrow(.))"
+"0",""
+"0","a = prepMode1 %>% ggplot(aes(x=index,y=Component_1,fill=as.factor(Secretor))) + geom_bar(stat=""identity"")"
+"0","b = prepMode2 %>% ggplot(aes(x=index,y=Component_1,fill=as.factor(Class))) + geom_bar(stat=""identity"")"
+"0","c = milkMetab_parafac$Fac[[3]] %>% as_tibble() %>% mutate(timepoint = c(3,30,60,90)) %>% ggplot(aes(x=timepoint,y=V1)) + geom_line() + geom_point()"
+"0",""
+"0","ggarrange(a,b,c,nrow=1,ncol=3)"

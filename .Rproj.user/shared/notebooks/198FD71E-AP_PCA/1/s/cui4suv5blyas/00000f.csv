@@ -1,0 +1,3 @@
+"0","taxa_reordered = taxa %>% arrange(Zotu)"
+"0","df_reordered = df %>% mutate(sample = sampleMeta$subjectID) %>% arrange(sample) %>% select(-sample) %>% select(taxa_reordered$Zotu)"
+"0","sampleMeta_reordered = sampleMeta %>% arrange(subjectID)"

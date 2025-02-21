@@ -1,0 +1,2 @@
+"0","# result = parafac4microbiome::assessModelQuality(milk_df_bmi, numRepetitions=10, numCores=parallel::detectCores())"
+"0","milk_parafac = parafac4microbiome::parafac(milk_df_bmi, nfac=1, nstart=100)"

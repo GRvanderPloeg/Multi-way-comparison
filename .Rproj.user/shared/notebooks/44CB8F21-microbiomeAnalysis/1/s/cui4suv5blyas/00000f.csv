@@ -1,0 +1,7 @@
+"0","taxa_reordered = taxa %>% arrange(Zotu)"
+"0","df_reordered = df %>% mutate(sample = sampleMeta$subjectID) %>% arrange(sample) %>% select(-sample) %>% select(taxa_reordered$Zotu)"
+"0","sampleMeta_reordered = sampleMeta %>% arrange(subjectID)"
+"0",""
+"0","write.table(df_reordered, ""./Data/AP/20240429_microbiome_counts.csv"", row.names=FALSE, col.names=FALSE)"
+"0","write.table(sampleMeta_reordered, ""./Data/AP/20240429_microbiome_sampleMeta.csv"", row.names=FALSE, col.names=FALSE)"
+"0","write.table(taxa_reordered, ""./Data/AP/20240429_taxonomy.csv"", row.names=FALSE, col.names=FALSE)"

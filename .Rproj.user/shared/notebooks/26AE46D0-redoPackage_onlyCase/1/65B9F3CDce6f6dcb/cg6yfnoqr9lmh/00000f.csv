@@ -1,0 +1,7 @@
+"0","cytokines_data = read.csv(""./Data/AP/input_deduplicated_RvdP.csv"", sep="" "", header=FALSE) %>% as_tibble()"
+"0","colnames(cytokines_data) = c(""VEGF"", ""CRP"", ""GM-CSF"", ""IL1alpha"", ""IL1beta"", ""IL4"", ""IL6"", ""IL8"", ""IL10"", ""IL12p70"", ""IL17A"", ""IFNgamma"", ""MIP1alpha"", ""OPG"", ""TNFalpha"", ""RANKL"")"
+"0",""
+"0","cytokines_meta_data = read.csv(""./Data/AP/input_deduplicated_metadata_RvdP.csv"", sep="" "", header=FALSE) %>% as_tibble()"
+"0","colnames(cytokines_meta_data) = c(""SubjectID"", ""Visit"", ""Gender"", ""Age"", ""Pain_noPain"", ""case_control"")"
+"0",""
+"0","otherMeta = read.csv(""./Data/AP/Root_meta_data_parafac.txt"", sep=""\t"") %>% as_tibble() %>% select(-Gender)"

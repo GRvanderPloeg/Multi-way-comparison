@@ -1,0 +1,38 @@
+"0","library(phyloseq)"
+"2","Registered S3 method overwritten by 'data.table':
+  method           from
+  print.data.table     
+"
+"0","library(tidyverse)"
+"0","library(vegan)"
+"2","Loading required package: permute
+"
+"2","
+Attaching package: ‘permute’
+
+"
+"2","The following object is masked from ‘package:devtools’:
+
+    check
+
+"
+"2","Loading required package: lattice
+"
+"2","This is vegan 2.6-8
+"
+"0","library(ape)"
+"2","
+Attaching package: ‘ape’
+
+"
+"2","The following object is masked from ‘package:ggpubr’:
+
+    rotate
+
+"
+"2","The following object is masked from ‘package:dplyr’:
+
+    where
+
+"
+"0","library(ggpubr)"
