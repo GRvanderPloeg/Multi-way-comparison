@@ -1,8 +1,0 @@
-"0","pseudocount = 1"
-"0","d = vegdist(df+pseudocount, method=""aitchison"")"
-"0","A_pcoa = ape::pcoa(d)"
-"0",""
-"0","Aplot = A_pcoa$vectors %>% as_tibble() %>% select(Axis.1, Axis.2) %>% mutate(sampleID = sampleOrder) %>% left_join(sampleMeta) %>% ggplot(aes(x=Axis.1,y=Axis.2,col=as.factor(group))) + geom_point()"
-"1","[38;5;255mJoining with `by = join_by(sampleID)`[39m
-"
-"0","Aplot"

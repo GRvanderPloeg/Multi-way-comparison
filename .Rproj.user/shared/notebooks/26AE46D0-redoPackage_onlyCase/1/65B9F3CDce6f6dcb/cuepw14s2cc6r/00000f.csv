@@ -1,2 +1,0 @@
-"0","result = parafac4microbiome::assessModelQuality(processedGeorgiou$data, numRepetitions=10, numCores=parallel::detectCores())"
-"0","cytokine_parafac = parafac4microbiome::parafac(processedGeorgiou$data, nfac=2, nstart=100)"

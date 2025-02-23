@@ -1,6 +1,0 @@
-"0","datasets = list(cytokines_cnt_scl, microbiome_cnt_scl)"
-"0","modes = list(c(1,2,3), c(1,4))"
-"0","Z = setupCMTFdata(datasets, modes, normalize=TRUE)"
-"2","Error in rTensor::as.tensor(convertedDataset) : 
-  is.array(x) || is.vector(x) is not TRUE
-"

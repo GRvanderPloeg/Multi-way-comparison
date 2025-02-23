@@ -10,49 +10,14 @@ library(parafac4microbiome)
 ```
 
 ```{r load the data}
-cytokines_data = read.csv("./Data/AP/input_deduplicated_RvdP.csv", sep=" ", header=FALSE) %>% as_tibble()
-colnames(cytokines_data) = c("VEGF", "CRP", "GM-CSF", "IL1alpha", "IL1beta", "IL4", "IL6", "IL8", "IL10", "IL12p70", "IL17A", "IFNgamma", "MIP1alpha", "OPG", "TNFalpha", "RANKL")
-
-cytokines_meta_data = read.csv("./Data/AP/input_deduplicated_metadata_RvdP.csv", sep=" ", header=FALSE) %>% as_tibble()
-colnames(cytokines_meta_data) = c("SubjectID", "Visit", "Gender", "Age", "Pain_noPain", "case_control")
-
-otherMeta = read.csv("./Data/AP/Root_meta_data_parafac.txt", sep="\t") %>% as_tibble() %>% select(-Gender)
-```
-
-```{r put into a cube for processing}
-I = 52
-J = 16
-K = 6
-cube = array(0L, dim=c(I,J,K))
-
-for(k in 1:K){
-  temp = cbind(cytokines_data, cytokines_meta_data) %>% as_tibble()
-  cube[,,k] = temp %>%
-    filter(Visit == k) %>%
-    right_join(cytokines_meta_data %>% select(SubjectID) %>% unique()) %>%
-    arrange(SubjectID) %>%
-    select(-all_of(colnames(cytokines_meta_data))) %>%
-    as.matrix()
-}
-
-cube = sqrt(cube)
-cube_cnt = multiwayCenter(cube, mode=1)
-cube_cnt_scl = multiwayScale(cube_cnt, mode=2)
-
-temp = cytokines_meta_data %>% select(-Visit) %>% unique() %>% arrange(SubjectID)
-caseMask = temp$case_control=="case"
-
-processedGeorgiou = list()
-processedGeorgiou$mode1 = temp[caseMask,] %>% left_join(otherMeta %>% select(SubjectID, PainS_NopainA) %>% unique())
-processedGeorgiou$mode2 = colnames(cytokines_data) %>% as_tibble()
-processedGeorgiou$mode3 = cytokines_meta_data %>% select(Visit) %>% arrange(Visit) %>% unique() %>% mutate(extraction = c(rep("Before extraction",3), rep("After extraction",3)))
-
-processedGeorgiou$data = cube_cnt_scl[caseMask,,]
+processedGeorgiou = readRDS("./Data/AP/cytokines_processed.RDS")
 ```
 
 ```{r PARAFAC of only case}
-result = parafac4microbiome::assessModelQuality(processedGeorgiou$data, numRepetitions=10, numCores=parallel::detectCores())
-cytokine_parafac = parafac4microbiome::parafac(processedGeorgiou$data, nfac=2, nstart=100)
+# result = parafac4microbiome::assessModelQuality(processedGeorgiou$data, numRepetitions=10, numCores=parallel::detectCores())
+# cytokine_parafac = parafac4microbiome::parafac(processedGeorgiou$data, nfac=2, nstart=100)
+# saveRDS(cytokine_parafac, "./Models/PARAFAC/AP_cytokine_parafac.RDS")
+cytokine_parafac = readRDS("./Models/PARAFAC/AP_cytokine_parafac.RDS")
 ```
 
 ```{r plot PARAFAC model}

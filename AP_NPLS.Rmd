@@ -10,13 +10,7 @@ library(parafac4microbiome)
 ```
 
 ```{r load the data}
-cytokines_data = read.csv("./Data/AP/input_deduplicated_RvdP.csv", sep=" ", header=FALSE) %>% as_tibble()
-colnames(cytokines_data) = c("VEGF", "CRP", "GM-CSF", "IL1alpha", "IL1beta", "IL4", "IL6", "IL8", "IL10", "IL12p70", "IL17A", "IFNgamma", "MIP1alpha", "OPG", "TNFalpha", "RANKL")
-
-cytokines_meta_data = read.csv("./Data/AP/input_deduplicated_metadata_RvdP.csv", sep=" ", header=FALSE) %>% as_tibble()
-colnames(cytokines_meta_data) = c("SubjectID", "Visit", "Gender", "Age", "Pain_noPain", "case_control")
-
-otherMeta = read.csv("./Data/AP/Root_meta_data_parafac.txt", sep="\t") %>% as_tibble() %>% select(-Gender)
+processedGeorgiou = readRDS("./Data/AP/cytokines_processed.RDS")
 ```
 
 ```{r Load model}
@@ -27,14 +21,38 @@ colnames(mode2) = c("Component_1", "value")
 mode3 = read.csv("./Models/NPLS/AP/AP_mode3.csv", header=FALSE)
 ```
 
+```{r fit sNPLS model as a test}
+Y = as.numeric(as.factor(processedGeorgiou$mode1$PainS_NopainA))
+Ycnt = Y - mean(Y)
 
-```{r plot PARAFAC model}
+X = processedGeorgiou$data
+X[is.na(X)] = 0 # sNPLS cannot handle NAs - very stupid
+model = sNPLS::sNPLS(X, as.matrix(Ycnt), 1, threshold_j=0, threshold_k=0, scale.X = FALSE, scale.Y=FALSE, center.X=FALSE, center.Y=FALSE)
+
+newMode1 = cbind(processedGeorgiou$mode1, model$T) %>% as_tibble()
+newMode2 = cbind(processedGeorgiou$mode2, model$Wj) %>% as_tibble()
+
+saveRDS(model, "./Models/NPLS/AP_cytokine_NPLS.RDS")
+```
+
+```{r plot NPLS model}
 prepMode1 = mode1 %>% arrange(PainS_NopainA, SubjectID) %>% mutate(index=1:nrow(.))
 prepMode2 = mode2 %>% arrange(value) %>% mutate(index=1:nrow(.))
 
 a = prepMode1 %>% ggplot(aes(x=index,y=Component_1,fill=as.factor(PainS_NopainA))) + geom_bar(stat="identity")
 b = prepMode2 %>% ggplot(aes(x=as.factor(value),y=Component_1)) + geom_bar(stat="identity")
 c = mode3 %>% as_tibble() %>% mutate(visit = 1:6) %>% ggplot(aes(x=visit,y=V1)) + geom_line() + geom_point()
+
+ggarrange(a,b,c,nrow=1,ncol=3)
+```
+
+```{r plot NPLS model from sNPLS}
+prepMode1 = newMode1 %>% arrange(PainS_NopainA, SubjectID) %>% mutate(index=1:nrow(.))
+prepMode2 = newMode2 %>% arrange(value) %>% mutate(index=1:nrow(.))
+
+a = prepMode1 %>% ggplot(aes(x=index,y=`Comp. 1`,fill=as.factor(PainS_NopainA))) + geom_bar(stat="identity")
+b = prepMode2 %>% ggplot(aes(x=as.factor(value),y=`Comp. 1`)) + geom_bar(stat="identity")
+c = model$Wk %>% as_tibble() %>% mutate(visit = 1:6) %>% ggplot(aes(x=visit,y=`Comp. 1`)) + geom_line() + geom_point()
 
 ggarrange(a,b,c,nrow=1,ncol=3)
 ```

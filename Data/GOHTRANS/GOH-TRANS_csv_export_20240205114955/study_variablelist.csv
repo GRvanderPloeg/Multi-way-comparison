@@ -1,0 +1,344 @@
+﻿"Visit name";"Form name";"Form number";"Field number";"Exported field type";"Original field type";"Variable name";"Field label";"Optiongroup name";"Field required";"Field min";"Field max";"Field units";"Field info";"Calculation/summary template";"Field hidden";"Dependency parent name";"Field dependency operator";"Field dependency value"
+"Visit 1";"General Information";1;1;date;date;"1.1|Date visit 1";"Date visit 1";;1;;;;;;0;;;
+"Visit 1";"General Information";1;2;radio;radio;pat_genderID;"Gender identity";sex;1;;;;;;0;;;
+"Visit 1";"General Information";1;3;numeric;numeric;Age;Age;;1;18;35;;;;0;;;
+"Visit 1";"General Information";1;4;string;string;Rsrch_initials;Researcher;;1;;;;;;0;;;
+"Visit 1";"General Information";1;5;string;string;notes_initials;"Notes made by";;1;;;;;;0;;;
+"Visit 1";"General Information";1;6;checkbox;checkbox;Informed_consent#Yes;"Informed consent procedure";Yes/No;1;;;;;;0;;;
+"Visit 1";"General Information";1;6;checkbox;checkbox;Informed_consent#No;"Informed consent procedure";Yes/No;1;;;;;;0;;;
+"Visit 1";"General Information";1;7;datetime;datetime;"1.7|Time last brushed";"Time last brushed";;1;;;;;;0;;;
+"Visit 1";"General Information";1;8;datetime;datetime;"1.8|Time since last meal";"Time since last meal";;1;;;;;;0;;;
+"Visit 1";"General Information";1;9;time;time;"1.9|Time of the day";"Time of the day";;1;;;;;;0;;;
+"Visit 1";"General Information";1;10;string;string;1.10|GAHT?;GAHT?;;1;;;;;;0;;;
+"Visit 1";"General Information";1;11;string;string;"1.11|Something additional to report?";"Something additional to report?";;1;;;;;;0;;;
+"Visit 1";"Exclusion criteria";2;1;radio;radio;actual_smoker;"Current smoker";og_smoker;1;;;;;;0;;;
+"Visit 1";"Exclusion criteria";2;2;checkbox;checkbox;antibiotic_use#Yes;"Antibiotic use in the last 2 months";Yes/No;1;;;;;;0;;;
+"Visit 1";"Exclusion criteria";2;2;checkbox;checkbox;antibiotic_use#No;"Antibiotic use in the last 2 months";Yes/No;1;;;;;;0;;;
+"Visit 1";"Exclusion criteria";2;3;checkbox;checkbox;antifungal_use#Yes;"Antifungal use in the last 2 months";Yes/No;1;;;;;;0;;;
+"Visit 1";"Exclusion criteria";2;3;checkbox;checkbox;antifungal_use#No;"Antifungal use in the last 2 months";Yes/No;1;;;;;;0;;;
+"Visit 1";"Exclusion criteria";2;4;checkbox;checkbox;Antiinflam_use#Yes;"Regular use of anti-inflammatory medication";Yes/No;1;;;;;;0;;;
+"Visit 1";"Exclusion criteria";2;4;checkbox;checkbox;Antiinflam_use#No;"Regular use of anti-inflammatory medication";Yes/No;1;;;;;;0;;;
+"Visit 1";"Exclusion criteria";2;5;checkbox;checkbox;antibiotic_profilaxis_need#Yes;"Antibiotic profilaxis before a dental treatment";Yes/No;1;;;;;;0;;;
+"Visit 1";"Exclusion criteria";2;5;checkbox;checkbox;antibiotic_profilaxis_need#No;"Antibiotic profilaxis before a dental treatment";Yes/No;1;;;;;;0;;;
+"Visit 1";"Exclusion criteria";2;6;checkbox;checkbox;medication_use#Yes;"Medication use";Yes/No;1;;;;;;0;;;
+"Visit 1";"Exclusion criteria";2;6;checkbox;checkbox;medication_use#No;"Medication use";Yes/No;1;;;;;;0;;;
+"Visit 1";"Exclusion criteria";2;6.1;string;string;dentist_visit_last_year_2;"Which one?";;1;;;;;;0;"Medication use";==;1
+"Visit 1";"Exclusion criteria";2;7;checkbox;checkbox;dentist_visit_last_year#Yes;"Visit to the dentist in the past year";Yes/No;1;;;;;;0;;;
+"Visit 1";"Exclusion criteria";2;7;checkbox;checkbox;dentist_visit_last_year#No;"Visit to the dentist in the past year";Yes/No;1;;;;;;0;;;
+"Visit 1";"Exclusion criteria";2;8;string;string;dentist_visit_last_year_1;When?;;1;;;;;;0;;;
+"Visit 1";"Exclusion criteria";2;7.1;string;string;"2.7.1|If not, explain why the participant can be included";"If not, explain why the participant can be included";;1;;;;;;0;"Visit to the dentist in the past year";==;0
+"Visit 1";"Exclusion criteria";2;9;checkbox;checkbox;overt_caries#Yes;"Overt caries";Yes/No;1;;;;;;0;;;
+"Visit 1";"Exclusion criteria";2;9;checkbox;checkbox;overt_caries#No;"Overt caries";Yes/No;1;;;;;;0;;;
+"Visit 1";"Exclusion criteria";2;10;checkbox;checkbox;PD_5mm_one_site#Yes;"5mm or deeper probing depth on at least 1 site";Yes/No;1;;;;;;0;;;
+"Visit 1";"Exclusion criteria";2;10;checkbox;checkbox;PD_5mm_one_site#No;"5mm or deeper probing depth on at least 1 site";Yes/No;1;;;;;;0;;;
+"Visit 1";"Exclusion criteria";2;11;checkbox;checkbox;BOP_higher_50#Yes;"More than 50% BOP";Yes/No;1;;;;;;0;;;
+"Visit 1";"Exclusion criteria";2;11;checkbox;checkbox;BOP_higher_50#No;"More than 50% BOP";Yes/No;1;;;;;;0;;;
+"Visit 1";"Research form";3;1;radio;radio;"3.1|Peri oral lesions";"Peri oral lesions";Yes/No;1;;;;;;0;;;
+"Visit 1";"Research form";3;1.1;string;string;"3.1.1|If yes, explain";"If yes, explain";;1;;;;;;0;"Peri oral lesions";==;1
+"Visit 1";"Research form";3;2;radio;radio;3.2|Aftas;Aftas;Yes/No;1;;;;;;0;;;
+"Visit 1";"Research form";3;2.1;string;string;"3.2.1|If yes, explain";"If yes, explain";;1;;;;;;0;Aftas;==;1
+"Visit 1";"Research form";3;3;radio;radio;"3.3|Fistulas. abscess";"Fistulas. abscess";Yes/No;1;;;;;;0;;;
+"Visit 1";"Research form";3;3.1;string;string;"3.3.1|If yes, explain";"If yes, explain";;1;;;;;;0;"Fistulas. abscess";==;1
+"Visit 1";"Research form";3;4;radio;radio;"3.4|Bite marks inside of oral mucosa, tongue or lips?";"Bite marks inside of oral mucosa, tongue or lips?";Yes/No;1;;;;;;0;;;
+"Visit 1";"Research form";3;4.1;string;string;"3.4.1|If yes, explain";"If yes, explain";;1;;;;;;0;"Bite marks inside of oral mucosa, tongue or lips?";==;1
+"Visit 1";"Research form";3;5;radio;radio;"3.5|Hairy tongue";"Hairy tongue";Yes/No;1;;;;;;0;;;
+"Visit 1";"Research form";3;5.1;string;string;"3.5.1|If yes, explain";"If yes, explain";;1;;;;;;0;"Hairy tongue";==;1
+"Visit 1";CODS;4;1;radio;radio;"4.1|Mirror sticks to the buccal mucosa";"Mirror sticks to the buccal mucosa";Yes/No;1;;;;;;0;;;
+"Visit 1";CODS;4;2;radio;radio;"4.2|Mirror sticks to the tongue";"Mirror sticks to the tongue";Yes/No;1;;;;;;0;;;
+"Visit 1";CODS;4;3;radio;radio;"4.3|Foamy saliva in the mouth";"Foamy saliva in the mouth";Yes/No;1;;;;;;0;;;
+"Visit 1";CODS;4;4;radio;radio;"4.4|Absence of saliva on the mouth's floor";"Absence of saliva on the mouth's floor";Yes/No;1;;;;;;0;;;
+"Visit 1";CODS;4;5;radio;radio;"4.5|Tongue has less papillae on its surface";"Tongue has less papillae on its surface";Yes/No;1;;;;;;0;;;
+"Visit 1";CODS;4;6;radio;radio;"4.6|Changed gingival aspect";"Changed gingival aspect";Yes/No;1;;;;;;0;;;
+"Visit 1";CODS;4;7;radio;radio;"4.7|Shinny looking oral mucosa, palate or other areas";"Shinny looking oral mucosa, palate or other areas";Yes/No;1;;;;;;0;;;
+"Visit 1";CODS;4;8;radio;radio;"4.8|Fissures in the tongue";"Fissures in the tongue";Yes/No;1;;;;;;0;;;
+"Visit 1";CODS;4;9;radio;radio;"4.9|Cervical caries or recently restored";"Cervical caries or recently restored";Yes/No;1;;;;;;0;;;
+"Visit 1";CODS;4;10;radio;radio;"4.10|Debris on the palate";"Debris on the palate";Yes/No;1;;;;;;0;;;
+"Visit 1";CODS;4;11;numeric;numeric;"4.11|Total score";"Total score";;1;0;10;;;;0;;;
+"Visit 1";DMFT-BOP-DPSI-Saliva-pH;5;1;numeric;numeric;"5.1|Number of teeth";"Number of teeth";;1;;;;;;0;;;
+"Visit 1";DMFT-BOP-DPSI-Saliva-pH;5;2;numeric;numeric;5.2|DMFT;DMFT;;1;;;;;;0;;;
+"Visit 1";DMFT-BOP-DPSI-Saliva-pH;5;3;numeric;numeric;"5.3|Bleeding sites";"Bleeding sites";;1;;;;;;0;;;
+"Visit 1";DMFT-BOP-DPSI-Saliva-pH;5;4;numeric;numeric;5.4|BOP%;BOP%;;1;;;;;;0;;;
+"Visit 1";DMFT-BOP-DPSI-Saliva-pH;5;5;numeric;numeric;5.5|DPSI;DPSI;;1;;;;;;0;;;
+"Visit 1";DMFT-BOP-DPSI-Saliva-pH;5;6;numeric;numeric;mL_saliva_collected;"ml saliva collected";;1;0;100;mL;;;0;;;
+"Visit 1";DMFT-BOP-DPSI-Saliva-pH;5;7;string;string;"5.7|Time needed for saliva collection";"Time needed for saliva collection";;1;;;;;;0;;;
+"Visit 1";DMFT-BOP-DPSI-Saliva-pH;5;8;numeric;numeric;5.8|pH;pH;;1;;;;;;0;;;
+"Visit 1";"Questionnaire - general questions";6;1;checkbox;checkbox;"6.1|Has anything changed with your health since the last check-up?#Yes";"Has anything changed with your health since the last check-up?";Yes/No;1;;;;;;0;;;
+"Visit 1";"Questionnaire - general questions";6;1;checkbox;checkbox;"6.1|Has anything changed with your health since the last check-up?#No";"Has anything changed with your health since the last check-up?";Yes/No;1;;;;;;0;;;
+"Visit 1";"Questionnaire - general questions";6;2;checkbox;checkbox;"6.2|Antibiotics in the last 6 months?#Yes";"Antibiotics in the last 6 months?";Yes/No;1;;;;;;0;;;
+"Visit 1";"Questionnaire - general questions";6;2;checkbox;checkbox;"6.2|Antibiotics in the last 6 months?#No";"Antibiotics in the last 6 months?";Yes/No;1;;;;;;0;;;
+"Visit 1";"Questionnaire - general questions";6;3;checkbox;checkbox;"6.3|Have you taken any painkillers in the last 24 hours?#Yes";"Have you taken any painkillers in the last 24 hours?";Yes/No;1;;;;;;0;;;
+"Visit 1";"Questionnaire - general questions";6;3;checkbox;checkbox;"6.3|Have you taken any painkillers in the last 24 hours?#No";"Have you taken any painkillers in the last 24 hours?";Yes/No;1;;;;;;0;;;
+"Visit 1";"Questionnaire - general questions";6;4;checkbox;checkbox;compliants_oral#Yes;"Have you had any complaints during the last 2 weeks regarding your mouth?";Yes/No;1;;;;;;0;;;
+"Visit 1";"Questionnaire - general questions";6;4;checkbox;checkbox;compliants_oral#No;"Have you had any complaints during the last 2 weeks regarding your mouth?";Yes/No;1;;;;;;0;;;
+"Visit 1";"Questionnaire - general questions";6;4.1;string;string;yes_why;"If yes, please explain";;1;;;;;;0;"Have you had any complaints during the last 2 weeks regarding your mouth?";==;1
+"Visit 1";"Questionnaire - general questions";6;5;checkbox;checkbox;compliants_gum#Yes;"Have you had any complaints during the last 2 weeks regarding your gum?";Yes/No;1;;;;;;0;;;
+"Visit 1";"Questionnaire - general questions";6;5;checkbox;checkbox;compliants_gum#No;"Have you had any complaints during the last 2 weeks regarding your gum?";Yes/No;1;;;;;;0;;;
+"Visit 1";"Questionnaire - general questions";6;5.1;string;string;gums_why;"If yes to 4.2, please explain";;1;;;;;;0;"Have you had any complaints during the last 2 weeks regarding your gum?";==;1
+"Visit 1";"Questionnaire - general questions";6;6;checkbox;checkbox;treatment_dental_2_weeks#Yes;"Have you had dental treatment in the past 2 weeks?";Yes/No;1;;;;;;0;;;
+"Visit 1";"Questionnaire - general questions";6;6;checkbox;checkbox;treatment_dental_2_weeks#No;"Have you had dental treatment in the past 2 weeks?";Yes/No;1;;;;;;0;;;
+"Visit 1";"Questionnaire - general questions";6;6.1;string;string;yes_why_treatment;"If yes, what kind of dental treatment?";;1;;;;;;0;"Have you had dental treatment in the past 2 weeks?";==;1
+"Visit 1";"Questionnaire - general questions";6;7;checkbox;checkbox;treatment_dental_2_weeks_1#Yes;"Do you feel healthy (regarding your oral health)?";Yes/No;1;;;;;;0;;;
+"Visit 1";"Questionnaire - general questions";6;7;checkbox;checkbox;treatment_dental_2_weeks_1#No;"Do you feel healthy (regarding your oral health)?";Yes/No;1;;;;;;0;;;
+"Visit 1";"Questionnaire - Dry mouth";7;1;radio;radio;"7.1|I use liquids to help me swallow the food";"I use liquids to help me swallow the food";"My lips feel dry";1;;;;;;0;;;
+"Visit 1";"Questionnaire - Dry mouth";7;2;radio;radio;"7.2|My mouth feels dry when I eat";"My mouth feels dry when I eat";"My lips feel dry";1;;;;;;0;;;
+"Visit 1";"Questionnaire - Dry mouth";7;3;radio;radio;"7.3|I wake up at night to drink";"I wake up at night to drink";"My lips feel dry";1;;;;;;0;;;
+"Visit 1";"Questionnaire - Dry mouth";7;4;radio;radio;"7.4|My mouth feels dry";"My mouth feels dry";"My lips feel dry";1;;;;;;0;;;
+"Visit 1";"Questionnaire - Dry mouth";7;5;radio;radio;"7.5|It is difficult to eat dry food";"It is difficult to eat dry food";"My lips feel dry";1;;;;;;0;;;
+"Visit 1";"Questionnaire - Dry mouth";7;6;radio;radio;"7.6|I use sweets or lollies to help my mouth feel less dry";"I use sweets or lollies to help my mouth feel less dry";"My lips feel dry";1;;;;;;0;;;
+"Visit 1";"Questionnaire - Dry mouth";7;7;radio;radio;"7.7|I find it difficult to swallow certain types of food";"I find it difficult to swallow certain types of food";"My lips feel dry";1;;;;;;0;;;
+"Visit 1";"Questionnaire - Dry mouth";7;8;radio;radio;"7.8|My facial skin feels dry";"My facial skin feels dry";"My lips feel dry";1;;;;;;0;;;
+"Visit 1";"Questionnaire - Dry mouth";7;9;radio;radio;"7.9|My eyes feel dry";"My eyes feel dry";"My lips feel dry";1;;;;;;0;;;
+"Visit 1";"Questionnaire - Dry mouth";7;10;radio;radio;"7.10|My lips feel dry";"My lips feel dry";"My lips feel dry";1;;;;;;0;;;
+"Visit 1";"Questionnaire - Dry mouth";7;11;radio;radio;"7.11|The inside of my nose feels dry";"The inside of my nose feels dry";"My lips feel dry";1;;;;;;0;;;
+"Visit 1";"Questionnaire - Dry mouth";7;12;numeric;numeric;Total;Total;;1;1;55;;;;0;;;
+"Visit 1";"Hormonal levels";8;1;string;string;"8.1|Estradiol (pmol/L)";"Estradiol (pmol/L)";;1;;;;;;0;;;
+"Visit 1";"Hormonal levels";8;2;string;string;"8.2|Testosterone (nmol/L)";"Testosterone (nmol/L)";;1;;;;;;0;;;
+"Visit 1";"Hormonal levels";8;3;string;string;"8.3|Free Testosterone (pmol/L)";"Free Testosterone (pmol/L)";;1;;;;;;0;;;
+"Visit 2";"General information";9;1;date;date;Date_v2;Date;;1;;;;;;0;;;
+"Visit 2";"General information";9;2;time;time;time_day_1_1;"Time of the day";;1;;;;;;0;;;
+"Visit 2";"General information";9;3;string;string;9.3|Researcher_writer;Researcher_writer;;1;;;;;;0;;;
+"Visit 2";"General information";9;4;checkbox;checkbox;antib_6_month_1#Yes;"Antibiotics in the last 6 months";Yes/No;1;;;;;;0;;;
+"Visit 2";"General information";9;4;checkbox;checkbox;antib_6_month_1#No;"Antibiotics in the last 6 months";Yes/No;1;;;;;;0;;;
+"Visit 2";"General information";9;4.1;string;string;antib_6_month_3;"Yes? which one?";;1;;;;;;0;"Antibiotics in the last 6 months";==;1
+"Visit 2";"General information";9;5;checkbox;checkbox;antib_6_month_2#Yes;"Antifungal in the last 6 months";Yes/No;1;;;;;;0;;;
+"Visit 2";"General information";9;5;checkbox;checkbox;antib_6_month_2#No;"Antifungal in the last 6 months";Yes/No;1;;;;;;0;;;
+"Visit 2";"General information";9;5.1;string;string;antib_6_month_4;"Yes? which one?";;1;;;;;;0;"Antifungal in the last 6 months";==;1
+"Visit 2";"General information";9;6;datetime;datetime;last_brush_1;"Time when participant last brushed";;1;;;;;;0;;;
+"Visit 2";"General information";9;7;datetime;datetime;last_food_intake_1;"Time when participant last ate";;1;;;;;;0;;;
+"Visit 2";"General information";9;8;radio;radio;last_drink_intake_1;"Did the participant drink something in the last 2 hours?";Yes/No;1;;;;;;0;;;
+"Visit 2";"General information";9;8.1;string;string;"9.8.1|If yes, what?";"If yes, what?";;1;;;;;;0;"Did the participant drink something in the last 2 hours?";==;1
+"Visit 2";"General information";9;9;radio;radio;"9.9|Use of medication?";"Use of medication?";Yes/No;1;;;;;;0;;;
+"Visit 2";"General information";9;9.1;string;string;antib_6_month_5;"Yes? which one?";;1;;;;;;0;"Use of medication?";==;1
+"Visit 2";"General information";9;10;string;string;"9.10|GAHT medication";"GAHT medication";;1;;;;;;0;;;
+"Visit 2";"General information";9;11;string;string;"9.11|Last visit to the dentist";"Last visit to the dentist";;1;;;;;;0;;;
+"Visit 2";"General information";9;12;string;string;"9.12|Something additional to report?";"Something additional to report?";;1;;;;;;0;;;
+"Visit 2";"Research form";10;1;radio;radio;"10.1|Peri oral lesions";"Peri oral lesions";Yes/No;1;;;;;;0;;;
+"Visit 2";"Research form";10;1.1;string;string;"10.1.1|If yes, explain";"If yes, explain";;1;;;;;;0;"Peri oral lesions";==;1
+"Visit 2";"Research form";10;2;radio;radio;10.2|Aftas;Aftas;Yes/No;1;;;;;;0;;;
+"Visit 2";"Research form";10;2.1;string;string;"10.2.1|If yes, explain";"If yes, explain";;1;;;;;;0;Aftas;==;1
+"Visit 2";"Research form";10;3;radio;radio;"10.3|Fistulas. abscess";"Fistulas. abscess";Yes/No;1;;;;;;0;;;
+"Visit 2";"Research form";10;3.1;string;string;"10.3.1|If yes, explain";"If yes, explain";;1;;;;;;0;"Fistulas. abscess";==;1
+"Visit 2";"Research form";10;4;radio;radio;"10.4|Bite marks inside of oral mucosa, tongue or lips?";"Bite marks inside of oral mucosa, tongue or lips?";Yes/No;1;;;;;;0;;;
+"Visit 2";"Research form";10;4.1;string;string;"10.4.1|If yes, explain";"If yes, explain";;1;;;;;;0;"Bite marks inside of oral mucosa, tongue or lips?";==;1
+"Visit 2";"Research form";10;5;radio;radio;"10.5|Hairy tongue";"Hairy tongue";Yes/No;1;;;;;;0;;;
+"Visit 2";"Research form";10;5.1;string;string;"10.5.1|If yes, explain";"If yes, explain";;1;;;;;;0;"Hairy tongue";==;1
+"Visit 2";"Research form";10;6;string;string;"10.6|Something else to report?";"Something else to report?";;1;;;;;;0;;;
+"Visit 2";CODS;11;1;radio;radio;"11.1|Mirror sticks to the buccal mucosa";"Mirror sticks to the buccal mucosa";Yes/No;1;;;;;;0;;;
+"Visit 2";CODS;11;2;radio;radio;"11.2|Mirror sticks to the tongue";"Mirror sticks to the tongue";Yes/No;1;;;;;;0;;;
+"Visit 2";CODS;11;3;radio;radio;"11.3|Foamy saliva in the mouth";"Foamy saliva in the mouth";Yes/No;1;;;;;;0;;;
+"Visit 2";CODS;11;4;radio;radio;"11.4|Absence of saliva on the mouth's floor";"Absence of saliva on the mouth's floor";Yes/No;1;;;;;;0;;;
+"Visit 2";CODS;11;5;radio;radio;"11.5|Tongue has less papillae on its surface";"Tongue has less papillae on its surface";Yes/No;1;;;;;;0;;;
+"Visit 2";CODS;11;6;radio;radio;"11.6|Changed gingival aspect";"Changed gingival aspect";Yes/No;1;;;;;;0;;;
+"Visit 2";CODS;11;7;radio;radio;"11.7|Shinny looking oral mucosa, palate or other areas";"Shinny looking oral mucosa, palate or other areas";Yes/No;1;;;;;;0;;;
+"Visit 2";CODS;11;8;radio;radio;"11.8|Fissures in the tongue";"Fissures in the tongue";Yes/No;1;;;;;;0;;;
+"Visit 2";CODS;11;9;radio;radio;"11.9|Cervical caries or recently restored";"Cervical caries or recently restored";Yes/No;1;;;;;;0;;;
+"Visit 2";CODS;11;10;radio;radio;"11.10|Debris on the palate";"Debris on the palate";Yes/No;1;;;;;;0;;;
+"Visit 2";CODS;11;11;numeric;numeric;"11.11|Total score";"Total score";;1;0;10;;;;0;;;
+"Visit 2";DMFT-BOP-DPSI-Saliva-pH;12;1;numeric;numeric;"12.1|Number of teeth";"Number of teeth";;1;;;;;;0;;;
+"Visit 2";DMFT-BOP-DPSI-Saliva-pH;12;2;numeric;numeric;12.2|DMFT;DMFT;;1;;;;;;0;;;
+"Visit 2";DMFT-BOP-DPSI-Saliva-pH;12;3;numeric;numeric;"12.3|Bleeding sites";"Bleeding sites";;1;;;;;;0;;;
+"Visit 2";DMFT-BOP-DPSI-Saliva-pH;12;4;numeric;numeric;12.4|BOP%;BOP%;;1;;;;;;0;;;
+"Visit 2";DMFT-BOP-DPSI-Saliva-pH;12;5;numeric;numeric;12.5|DPSI;DPSI;;1;;;;;;0;;;
+"Visit 2";DMFT-BOP-DPSI-Saliva-pH;12;6;numeric;numeric;mL_saliva_collected_1;"ml saliva collected";;1;0;100;mL;;;0;;;
+"Visit 2";DMFT-BOP-DPSI-Saliva-pH;12;7;string;string;"12.7|Time needed for saliva collection";"Time needed for saliva collection";;1;;;;;;0;;;
+"Visit 2";DMFT-BOP-DPSI-Saliva-pH;12;8;numeric;numeric;12.8|pH;pH;;1;;;;;;0;;;
+"Visit 2";"Questionnaire - general questions";13;1;checkbox;checkbox;"13.1|Has anything changed with your health since the last check-up?#Yes";"Has anything changed with your health since the last check-up?";Yes/No;1;;;;;;0;;;
+"Visit 2";"Questionnaire - general questions";13;1;checkbox;checkbox;"13.1|Has anything changed with your health since the last check-up?#No";"Has anything changed with your health since the last check-up?";Yes/No;1;;;;;;0;;;
+"Visit 2";"Questionnaire - general questions";13;1.1;string;string;yes_why_2;"If yes, please explain";;1;;;;;;0;"Has anything changed with your health since the last check-up?";==;1
+"Visit 2";"Questionnaire - general questions";13;2;checkbox;checkbox;"13.2|Antibiotics in the last 6 months?#Yes";"Antibiotics in the last 6 months?";Yes/No;1;;;;;;0;;;
+"Visit 2";"Questionnaire - general questions";13;2;checkbox;checkbox;"13.2|Antibiotics in the last 6 months?#No";"Antibiotics in the last 6 months?";Yes/No;1;;;;;;0;;;
+"Visit 2";"Questionnaire - general questions";13;2.1;string;string;yes_why_3;"If yes, please explain";;1;;;;;;0;"Antibiotics in the last 6 months?";==;1
+"Visit 2";"Questionnaire - general questions";13;3;checkbox;checkbox;"13.3|Have you taken any painkillers in the last 24 hours?#Yes";"Have you taken any painkillers in the last 24 hours?";Yes/No;1;;;;;;0;;;
+"Visit 2";"Questionnaire - general questions";13;3;checkbox;checkbox;"13.3|Have you taken any painkillers in the last 24 hours?#No";"Have you taken any painkillers in the last 24 hours?";Yes/No;1;;;;;;0;;;
+"Visit 2";"Questionnaire - general questions";13;3.1;string;string;yes_why_4;"If yes, please explain";;1;;;;;;0;"Have you taken any painkillers in the last 24 hours?";==;1
+"Visit 2";"Questionnaire - general questions";13;4;checkbox;checkbox;compliants_oral_1#Yes;"Have you had any complaints during the last 2 weeks regarding your mouth?";Yes/No;1;;;;;;0;;;
+"Visit 2";"Questionnaire - general questions";13;4;checkbox;checkbox;compliants_oral_1#No;"Have you had any complaints during the last 2 weeks regarding your mouth?";Yes/No;1;;;;;;0;;;
+"Visit 2";"Questionnaire - general questions";13;4.1;string;string;yes_why_1;"If yes, please explain";;1;;;;;;0;"Have you had any complaints during the last 2 weeks regarding your mouth?";==;1
+"Visit 2";"Questionnaire - general questions";13;5;checkbox;checkbox;compliants_gum_1#Yes;"Have you had any complaints during the last 2 weeks regarding your gum?";Yes/No;1;;;;;;0;;;
+"Visit 2";"Questionnaire - general questions";13;5;checkbox;checkbox;compliants_gum_1#No;"Have you had any complaints during the last 2 weeks regarding your gum?";Yes/No;1;;;;;;0;;;
+"Visit 2";"Questionnaire - general questions";13;5.1;string;string;gums_why_1;"If yes to 4.2, please explain";;1;;;;;;0;"Have you had any complaints during the last 2 weeks regarding your gum?";==;1
+"Visit 2";"Questionnaire - general questions";13;6;checkbox;checkbox;treatment_dental_2_weeks_2#Yes;"Have you had dental treatment in the past 2 weeks?";Yes/No;1;;;;;;0;;;
+"Visit 2";"Questionnaire - general questions";13;6;checkbox;checkbox;treatment_dental_2_weeks_2#No;"Have you had dental treatment in the past 2 weeks?";Yes/No;1;;;;;;0;;;
+"Visit 2";"Questionnaire - general questions";13;6.1;string;string;yes_why_treatment_1;"If yes, what kind of dental treatment?";;1;;;;;;0;"Have you had dental treatment in the past 2 weeks?";==;1
+"Visit 2";"Questionnaire - general questions";13;7;checkbox;checkbox;treatment_dental_2_weeks_3#Yes;"Do you feel healthy in terms of oral health?";Yes/No;1;;;;;;0;;;
+"Visit 2";"Questionnaire - general questions";13;7;checkbox;checkbox;treatment_dental_2_weeks_3#No;"Do you feel healthy in terms of oral health?";Yes/No;1;;;;;;0;;;
+"Visit 2";"Questionnaire - general questions";13;7.1;string;string;yes_why_treatment_2;"If no, explain";;1;;;;;;0;"Do you feel healthy in terms of oral health?";==;0
+"Visit 2";"Questionnaire - Dry mouth";14;1;radio;radio;"14.1|I use liquids to help me swallow the food";"I use liquids to help me swallow the food";"My lips feel dry";1;;;;;;0;;;
+"Visit 2";"Questionnaire - Dry mouth";14;2;radio;radio;"14.2|My mouth feels dry when I eat";"My mouth feels dry when I eat";"My lips feel dry";1;;;;;;0;;;
+"Visit 2";"Questionnaire - Dry mouth";14;3;radio;radio;"14.3|I wake up at night to drink";"I wake up at night to drink";"My lips feel dry";1;;;;;;0;;;
+"Visit 2";"Questionnaire - Dry mouth";14;4;radio;radio;"14.4|My mouth feels dry";"My mouth feels dry";"My lips feel dry";1;;;;;;0;;;
+"Visit 2";"Questionnaire - Dry mouth";14;5;radio;radio;"14.5|It is difficult to eat dry food";"It is difficult to eat dry food";"My lips feel dry";1;;;;;;0;;;
+"Visit 2";"Questionnaire - Dry mouth";14;6;radio;radio;"14.6|I use sweets or lollies to help my mouth feel less dry";"I use sweets or lollies to help my mouth feel less dry";"My lips feel dry";1;;;;;;0;;;
+"Visit 2";"Questionnaire - Dry mouth";14;7;radio;radio;"14.7|I find it difficult to swallow certain types of food";"I find it difficult to swallow certain types of food";"My lips feel dry";1;;;;;;0;;;
+"Visit 2";"Questionnaire - Dry mouth";14;8;radio;radio;"14.8|My facial skin feels dry";"My facial skin feels dry";"My lips feel dry";1;;;;;;0;;;
+"Visit 2";"Questionnaire - Dry mouth";14;9;radio;radio;"14.9|My eyes feel dry";"My eyes feel dry";"My lips feel dry";1;;;;;;0;;;
+"Visit 2";"Questionnaire - Dry mouth";14;10;radio;radio;"14.10|My lips feel dry";"My lips feel dry";"My lips feel dry";1;;;;;;0;;;
+"Visit 2";"Questionnaire - Dry mouth";14;11;radio;radio;"14.11|The inside of my nose feels dry";"The inside of my nose feels dry";"My lips feel dry";1;;;;;;0;;;
+"Visit 2";"Questionnaire - Dry mouth";14;12;numeric;numeric;Total_1;Total;;1;1;55;;;;0;;;
+"Visit 2";"Hormonal levels";15;1;string;string;"15.1|Estradiol (pmol/L)";"Estradiol (pmol/L)";;1;;;;;;0;;;
+"Visit 2";"Hormonal levels";15;2;string;string;"15.2|Testosterone (nmol/L)";"Testosterone (nmol/L)";;1;;;;;;0;;;
+"Visit 2";"Hormonal levels";15;3;string;string;"15.3|Free Testosterone (pmol/L)";"Free Testosterone (pmol/L)";;1;;;;;;0;;;
+"Visit 3";"General information";16;1;date;date;Date_v2_1;Date;;1;;;;;;0;;;
+"Visit 3";"General information";16;2;time;time;time_day_1_1_1;"Time of the day";;1;;;;;;0;;;
+"Visit 3";"General information";16;3;string;string;16.3|Researcher_writer;Researcher_writer;;1;;;;;;0;;;
+"Visit 3";"General information";16;4;checkbox;checkbox;antib_6_month_1_1#Yes;"Antibiotics in the last 6 months";Yes/No;1;;;;;;0;;;
+"Visit 3";"General information";16;4;checkbox;checkbox;antib_6_month_1_1#No;"Antibiotics in the last 6 months";Yes/No;1;;;;;;0;;;
+"Visit 3";"General information";16;4.1;string;string;antib_6_month_6;"Yes? which one?";;1;;;;;;0;"Antibiotics in the last 6 months";==;1
+"Visit 3";"General information";16;5;checkbox;checkbox;antib_6_month_2_1#Yes;"Antifungal in the last 6 months";Yes/No;1;;;;;;0;;;
+"Visit 3";"General information";16;5;checkbox;checkbox;antib_6_month_2_1#No;"Antifungal in the last 6 months";Yes/No;1;;;;;;0;;;
+"Visit 3";"General information";16;5.1;string;string;antib_6_month_7;"Yes? which one?";;1;;;;;;0;"Antifungal in the last 6 months";==;1
+"Visit 3";"General information";16;6;datetime;datetime;last_brush_1_1;"Time when participant last brushed";;1;;;;;;0;;;
+"Visit 3";"General information";16;7;datetime;datetime;last_food_intake_1_1;"Time when participant last ate";;1;;;;;;0;;;
+"Visit 3";"General information";16;8;radio;radio;last_drink_intake_1_1;"Did the participant drink something in the last 2 hours?";Yes/No;1;;;;;;0;;;
+"Visit 3";"General information";16;8.1;string;string;"16.8.1|If yes, what?";"If yes, what?";;1;;;;;;0;"Did the participant drink something in the last 2 hours?";==;1
+"Visit 3";"General information";16;9;radio;radio;"16.9|Use of medication?";"Use of medication?";Yes/No;1;;;;;;0;;;
+"Visit 3";"General information";16;9.1;string;string;"16.9.1|If yes, what?";"If yes, what?";;1;;;;;;0;"Use of medication?";==;1
+"Visit 3";"General information";16;10;string;string;"16.10|GAHT medication";"GAHT medication";;1;;;;;;0;;;
+"Visit 3";"General information";16;11;string;string;"16.11|Last visit to the dentist";"Last visit to the dentist";;1;;;;;;0;;;
+"Visit 3";"General information";16;12;string;string;"16.12|Something additional to report?";"Something additional to report?";;1;;;;;;0;;;
+"Visit 3";"Research form";17;1;radio;radio;"17.1|Peri oral lesions";"Peri oral lesions";Yes/No;1;;;;;;0;;;
+"Visit 3";"Research form";17;1.1;string;string;"17.1.1|If yes, explain";"If yes, explain";;1;;;;;;0;"Peri oral lesions";==;1
+"Visit 3";"Research form";17;2;radio;radio;17.2|Aftas;Aftas;Yes/No;1;;;;;;0;;;
+"Visit 3";"Research form";17;2.1;string;string;"17.2.1|If yes, explain";"If yes, explain";;1;;;;;;0;Aftas;==;1
+"Visit 3";"Research form";17;3;radio;radio;"17.3|Bite marks inside of oral mucosa, tongue or lips?";"Bite marks inside of oral mucosa, tongue or lips?";Yes/No;1;;;;;;0;;;
+"Visit 3";"Research form";17;3.1;string;string;"17.3.1|If yes, explain";"If yes, explain";;1;;;;;;0;"Bite marks inside of oral mucosa, tongue or lips?";==;1
+"Visit 3";"Research form";17;4;radio;radio;"17.4|Hairy tongue";"Hairy tongue";Yes/No;1;;;;;;0;;;
+"Visit 3";"Research form";17;4.1;string;string;"17.4.1|If yes, explain";"If yes, explain";;1;;;;;;0;"Hairy tongue";==;1
+"Visit 3";"Research form";17;5;string;string;"17.5|Something else to report?";"Something else to report?";;1;;;;;;0;;;
+"Visit 3";CODS;18;1;radio;radio;"18.1|Mirror sticks to the buccal mucosa";"Mirror sticks to the buccal mucosa";Yes/No;1;;;;;;0;;;
+"Visit 3";CODS;18;2;radio;radio;"18.2|Mirror sticks to the tongue";"Mirror sticks to the tongue";Yes/No;1;;;;;;0;;;
+"Visit 3";CODS;18;3;radio;radio;"18.3|Foamy saliva in the mouth";"Foamy saliva in the mouth";Yes/No;1;;;;;;0;;;
+"Visit 3";CODS;18;4;radio;radio;"18.4|Absence of saliva on the mouth's floor";"Absence of saliva on the mouth's floor";Yes/No;1;;;;;;0;;;
+"Visit 3";CODS;18;5;radio;radio;"18.5|Tongue has less papillae on its surface";"Tongue has less papillae on its surface";Yes/No;1;;;;;;0;;;
+"Visit 3";CODS;18;6;radio;radio;"18.6|Changed gingival aspect";"Changed gingival aspect";Yes/No;1;;;;;;0;;;
+"Visit 3";CODS;18;7;radio;radio;"18.7|Shinny looking oral mucosa, palate or other areas";"Shinny looking oral mucosa, palate or other areas";Yes/No;1;;;;;;0;;;
+"Visit 3";CODS;18;8;radio;radio;"18.8|Fissures in the tongue";"Fissures in the tongue";Yes/No;1;;;;;;0;;;
+"Visit 3";CODS;18;9;radio;radio;"18.9|Cervical caries or recently restored";"Cervical caries or recently restored";Yes/No;1;;;;;;0;;;
+"Visit 3";CODS;18;10;radio;radio;"18.10|Debris on the palate";"Debris on the palate";Yes/No;1;;;;;;0;;;
+"Visit 3";CODS;18;11;numeric;numeric;"18.11|Total score";"Total score";;1;0;10;;;;0;;;
+"Visit 3";DMFT-BOP-DPSI-Saliva-pH;19;1;numeric;numeric;"19.1|Number of teeth";"Number of teeth";;1;;;;;;0;;;
+"Visit 3";DMFT-BOP-DPSI-Saliva-pH;19;2;numeric;numeric;19.2|DMFT;DMFT;;1;;;;;;0;;;
+"Visit 3";DMFT-BOP-DPSI-Saliva-pH;19;3;numeric;numeric;"19.3|Bleeding sites";"Bleeding sites";;1;;;;;;0;;;
+"Visit 3";DMFT-BOP-DPSI-Saliva-pH;19;4;numeric;numeric;19.4|BOP%;BOP%;;1;;;;;;0;;;
+"Visit 3";DMFT-BOP-DPSI-Saliva-pH;19;5;numeric;numeric;19.5|DPSI;DPSI;;1;;;;;;0;;;
+"Visit 3";DMFT-BOP-DPSI-Saliva-pH;19;6;numeric;numeric;mL_saliva_collected_1_1;"ml saliva collected";;1;0;100;mL;;;0;;;
+"Visit 3";DMFT-BOP-DPSI-Saliva-pH;19;7;string;string;"19.7|Time needed for saliva collection";"Time needed for saliva collection";;1;;;;;;0;;;
+"Visit 3";DMFT-BOP-DPSI-Saliva-pH;19;8;numeric;numeric;19.8|pH;pH;;1;;;;;;0;;;
+"Visit 3";"Questionnaire - general questions";20;1;checkbox;checkbox;"20.1|Has anything changed with your health since the last check-up?#Yes";"Has anything changed with your health since the last check-up?";Yes/No;1;;;;;;0;;;
+"Visit 3";"Questionnaire - general questions";20;1;checkbox;checkbox;"20.1|Has anything changed with your health since the last check-up?#No";"Has anything changed with your health since the last check-up?";Yes/No;1;;;;;;0;;;
+"Visit 3";"Questionnaire - general questions";20;1.1;string;string;yes_why_1_2;"If yes, please explain";;1;;;;;;0;"Has anything changed with your health since the last check-up?";==;1
+"Visit 3";"Questionnaire - general questions";20;2;checkbox;checkbox;"20.2|Antibiotics in the last 6 months?#Yes";"Antibiotics in the last 6 months?";Yes/No;1;;;;;;0;;;
+"Visit 3";"Questionnaire - general questions";20;2;checkbox;checkbox;"20.2|Antibiotics in the last 6 months?#No";"Antibiotics in the last 6 months?";Yes/No;1;;;;;;0;;;
+"Visit 3";"Questionnaire - general questions";20;2.1;string;string;yes_why_1_3;"If yes, please explain";;1;;;;;;0;"Antibiotics in the last 6 months?";==;1
+"Visit 3";"Questionnaire - general questions";20;3;checkbox;checkbox;"20.3|Have you taken any painkillers in the last 24 hours?#Yes";"Have you taken any painkillers in the last 24 hours?";Yes/No;1;;;;;;0;;;
+"Visit 3";"Questionnaire - general questions";20;3;checkbox;checkbox;"20.3|Have you taken any painkillers in the last 24 hours?#No";"Have you taken any painkillers in the last 24 hours?";Yes/No;1;;;;;;0;;;
+"Visit 3";"Questionnaire - general questions";20;3.1;string;string;yes_why_1_4;"If yes, please explain";;1;;;;;;0;"Have you taken any painkillers in the last 24 hours?";==;1
+"Visit 3";"Questionnaire - general questions";20;4;checkbox;checkbox;compliants_oral_1_1#Yes;"Have you had any complaints during the last 2 weeks regarding your mouth?";Yes/No;1;;;;;;0;;;
+"Visit 3";"Questionnaire - general questions";20;4;checkbox;checkbox;compliants_oral_1_1#No;"Have you had any complaints during the last 2 weeks regarding your mouth?";Yes/No;1;;;;;;0;;;
+"Visit 3";"Questionnaire - general questions";20;4.1;string;string;gums_why_1_1;"If yes to 4.2, please explain";;1;;;;;;0;"Have you had any complaints during the last 2 weeks regarding your mouth?";==;1
+"Visit 3";"Questionnaire - general questions";20;5;checkbox;checkbox;compliants_gum_1_1#Yes;"Have you had any complaints during the last 2 weeks regarding your gums?";Yes/No;1;;;;;;0;;;
+"Visit 3";"Questionnaire - general questions";20;5;checkbox;checkbox;compliants_gum_1_1#No;"Have you had any complaints during the last 2 weeks regarding your gums?";Yes/No;1;;;;;;0;;;
+"Visit 3";"Questionnaire - general questions";20;5.1;string;string;yes_why_1_1;"If yes, please explain";;1;;;;;;0;"Have you had any complaints during the last 2 weeks regarding your gums?";==;1
+"Visit 3";"Questionnaire - general questions";20;6;checkbox;checkbox;treatment_dental_2_weeks_2_1#Yes;"Have you had dental treatment in the past 2 weeks?";Yes/No;1;;;;;;0;;;
+"Visit 3";"Questionnaire - general questions";20;6;checkbox;checkbox;treatment_dental_2_weeks_2_1#No;"Have you had dental treatment in the past 2 weeks?";Yes/No;1;;;;;;0;;;
+"Visit 3";"Questionnaire - general questions";20;6.1;string;string;yes_why_treatment_1_1;"If yes, what kind of dental treatment?";;1;;;;;;0;"Have you had dental treatment in the past 2 weeks?";==;1
+"Visit 3";"Questionnaire - general questions";20;7;checkbox;checkbox;treatment_dental_2_weeks_1_1_1#Yes;"Do you feel healthy (regarding your oral health)?";Yes/No;1;;;;;;0;;;
+"Visit 3";"Questionnaire - general questions";20;7;checkbox;checkbox;treatment_dental_2_weeks_1_1_1#No;"Do you feel healthy (regarding your oral health)?";Yes/No;1;;;;;;0;;;
+"Visit 3";"Questionnaire - general questions";20;7.1;string;string;yes_why_1_5;"If no, please explain";;1;;;;;;0;"Do you feel healthy (regarding your oral health)?";==;0
+"Visit 3";"Questionnaire - Dry mouth";21;1;radio;radio;"21.1|I use liquids to help me swallow the food";"I use liquids to help me swallow the food";"My lips feel dry";1;;;;;;0;;;
+"Visit 3";"Questionnaire - Dry mouth";21;2;radio;radio;"21.2|My mouth feels dry when I eat";"My mouth feels dry when I eat";"My lips feel dry";1;;;;;;0;;;
+"Visit 3";"Questionnaire - Dry mouth";21;3;radio;radio;"21.3|I wake up at night to drink";"I wake up at night to drink";"My lips feel dry";1;;;;;;0;;;
+"Visit 3";"Questionnaire - Dry mouth";21;4;radio;radio;"21.4|My mouth feels dry";"My mouth feels dry";"My lips feel dry";1;;;;;;0;;;
+"Visit 3";"Questionnaire - Dry mouth";21;5;radio;radio;"21.5|It is difficult to eat dry food";"It is difficult to eat dry food";"My lips feel dry";1;;;;;;0;;;
+"Visit 3";"Questionnaire - Dry mouth";21;6;radio;radio;"21.6|I use sweets or lollies to help my mouth feel less dry";"I use sweets or lollies to help my mouth feel less dry";"My lips feel dry";1;;;;;;0;;;
+"Visit 3";"Questionnaire - Dry mouth";21;7;radio;radio;"21.7|I find it difficult to swallow certain types of food";"I find it difficult to swallow certain types of food";"My lips feel dry";1;;;;;;0;;;
+"Visit 3";"Questionnaire - Dry mouth";21;8;radio;radio;"21.8|My facial skin feels dry";"My facial skin feels dry";"My lips feel dry";1;;;;;;0;;;
+"Visit 3";"Questionnaire - Dry mouth";21;9;radio;radio;"21.9|My eyes feel dry";"My eyes feel dry";"My lips feel dry";1;;;;;;0;;;
+"Visit 3";"Questionnaire - Dry mouth";21;10;radio;radio;"21.10|My lips feel dry";"My lips feel dry";"My lips feel dry";1;;;;;;0;;;
+"Visit 3";"Questionnaire - Dry mouth";21;11;radio;radio;"21.11|The inside of my nose feels dry";"The inside of my nose feels dry";"My lips feel dry";1;;;;;;0;;;
+"Visit 3";"Questionnaire - Dry mouth";21;12;numeric;numeric;Total_1_1;Total;;1;1;55;;;;0;;;
+"Visit 3";"Hormonal levels";22;1;string;string;"22.1|Estradiol (pmol/L)";"Estradiol (pmol/L)";;1;;;;;;0;;;
+"Visit 3";"Hormonal levels";22;2;string;string;"22.2|Testosterone (nmol/L)";"Testosterone (nmol/L)";;1;;;;;;0;;;
+"Visit 3";"Hormonal levels";22;3;string;string;"22.3|Free Testosterone (pmol/L)";"Free Testosterone (pmol/L)";;1;;;;;;0;;;
+"Visit 4";"General information";23;1;date;date;Date_v2_2;Date;;1;;;;;;0;;;
+"Visit 4";"General information";23;2;time;time;time_day_1_1_2;"Time of the day";;1;;;;;;0;;;
+"Visit 4";"General information";23;3;string;string;23.3|Researcher_writer;Researcher_writer;;1;;;;;;0;;;
+"Visit 4";"General information";23;4;checkbox;checkbox;antib_6_month_1_2#Yes;"Antibiotics in the last 6 months";Yes/No;1;;;;;;0;;;
+"Visit 4";"General information";23;4;checkbox;checkbox;antib_6_month_1_2#No;"Antibiotics in the last 6 months";Yes/No;1;;;;;;0;;;
+"Visit 4";"General information";23;4.1;string;string;"23.4.1|If so, what?";"If so, what?";;1;;;;;;0;"Antibiotics in the last 6 months";==;1
+"Visit 4";"General information";23;5;checkbox;checkbox;antib_6_month_2_2#Yes;"Antifungal in the last 6 months";Yes/No;1;;;;;;0;;;
+"Visit 4";"General information";23;5;checkbox;checkbox;antib_6_month_2_2#No;"Antifungal in the last 6 months";Yes/No;1;;;;;;0;;;
+"Visit 4";"General information";23;5.1;string;string;"23.5.1|If so, what?";"If so, what?";;1;;;;;;0;"Antifungal in the last 6 months";==;1
+"Visit 4";"General information";23;6;datetime;datetime;last_brush_1_2;"Time when participant last brushed";;1;;;;;;0;;;
+"Visit 4";"General information";23;7;datetime;datetime;last_food_intake_1_2;"Time when participant last ate";;1;;;;;;0;;;
+"Visit 4";"General information";23;8;radio;radio;last_drink_intake_1_2;"Did the participant drink/eat something in the last 2 hours?";Yes/No;1;;;;;;0;;;
+"Visit 4";"General information";23;8.1;string;string;"23.8.1|If so, what?";"If so, what?";;1;;;;;;0;"Did the participant drink/eat something in the last 2 hours?";==;1
+"Visit 4";"General information";23;9;radio;radio;"23.9|Use of medication?";"Use of medication?";Yes/No;1;;;;;;0;;;
+"Visit 4";"General information";23;9.1;string;string;"23.9.1|If so, which medication?";"If so, which medication?";;1;;;;;;0;"Use of medication?";==;1
+"Visit 4";"General information";23;10;string;string;"23.10|GAHT medication";"GAHT medication";;1;;;;;;0;;;
+"Visit 4";"General information";23;11;string;string;"23.11|Last visit to the dentist";"Last visit to the dentist";;1;;;;;;0;;;
+"Visit 4";"General information";23;12;string;string;"23.12|Something additional to report?";"Something additional to report?";;1;;;;;;0;;;
+"Visit 4";"Research form";24;1;radio;radio;"24.1|Peri oral lesions";"Peri oral lesions";Yes/No;1;;;;;;0;;;
+"Visit 4";"Research form";24;1.1;string;string;"24.1.1|If so, explain";"If so, explain";;1;;;;;;0;"Peri oral lesions";==;1
+"Visit 4";"Research form";24;2;radio;radio;24.2|Aftas;Aftas;Yes/No;1;;;;;;0;;;
+"Visit 4";"Research form";24;2.1;string;string;"24.2.1|If so, explain";"If so, explain";;1;;;;;;0;Aftas;==;1
+"Visit 4";"Research form";24;3;radio;radio;"24.3|Bite marks inside of oral mucosa, tongue or lips?";"Bite marks inside of oral mucosa, tongue or lips?";Yes/No;1;;;;;;0;;;
+"Visit 4";"Research form";24;3.1;string;string;"24.3.1|If so, explain";"If so, explain";;1;;;;;;0;"Bite marks inside of oral mucosa, tongue or lips?";==;1
+"Visit 4";"Research form";24;4;radio;radio;"24.4|Hairy tongue";"Hairy tongue";Yes/No;1;;;;;;0;;;
+"Visit 4";"Research form";24;4.1;string;string;"24.4.1|If so, explain";"If so, explain";;1;;;;;;0;"Hairy tongue";==;1
+"Visit 4";"Research form";24;5;string;string;"24.5|Something else to report?";"Something else to report?";;1;;;;;;0;;;
+"Visit 4";CODS;25;1;radio;radio;"25.1|Mirror sticks to the buccal mucosa";"Mirror sticks to the buccal mucosa";Yes/No;1;;;;;;0;;;
+"Visit 4";CODS;25;2;radio;radio;"25.2|Mirror sticks to the tongue";"Mirror sticks to the tongue";Yes/No;1;;;;;;0;;;
+"Visit 4";CODS;25;3;radio;radio;"25.3|Foamy saliva in the mouth";"Foamy saliva in the mouth";Yes/No;1;;;;;;0;;;
+"Visit 4";CODS;25;4;radio;radio;"25.4|Absence of saliva on the mouth's floor";"Absence of saliva on the mouth's floor";Yes/No;1;;;;;;0;;;
+"Visit 4";CODS;25;5;radio;radio;"25.5|Tongue has less papillae on its surface";"Tongue has less papillae on its surface";Yes/No;1;;;;;;0;;;
+"Visit 4";CODS;25;6;radio;radio;"25.6|Changed gingival aspect";"Changed gingival aspect";Yes/No;1;;;;;;0;;;
+"Visit 4";CODS;25;7;radio;radio;"25.7|Shinny looking oral mucosa, palate or other areas";"Shinny looking oral mucosa, palate or other areas";Yes/No;1;;;;;;0;;;
+"Visit 4";CODS;25;8;radio;radio;"25.8|Fissures in the tongue";"Fissures in the tongue";Yes/No;1;;;;;;0;;;
+"Visit 4";CODS;25;9;radio;radio;"25.9|Cervical caries or recently restored";"Cervical caries or recently restored";Yes/No;1;;;;;;0;;;
+"Visit 4";CODS;25;10;radio;radio;"25.10|Debris on the palate";"Debris on the palate";Yes/No;1;;;;;;0;;;
+"Visit 4";CODS;25;11;numeric;numeric;"25.11|Total score";"Total score";;1;0;10;;;;0;;;
+"Visit 4";DMFT-BOP-DPSI-Saliva-pH;26;1;numeric;numeric;"26.1|Number of teeth";"Number of teeth";;1;;;;;;0;;;
+"Visit 4";DMFT-BOP-DPSI-Saliva-pH;26;2;numeric;numeric;26.2|DMFT;DMFT;;1;;;;;;0;;;
+"Visit 4";DMFT-BOP-DPSI-Saliva-pH;26;3;numeric;numeric;"26.3|Bleeding sites";"Bleeding sites";;1;;;;;;0;;;
+"Visit 4";DMFT-BOP-DPSI-Saliva-pH;26;4;numeric;numeric;26.4|BOP%;BOP%;;1;;;;;;0;;;
+"Visit 4";DMFT-BOP-DPSI-Saliva-pH;26;5;numeric;numeric;26.5|DPSI;DPSI;;1;;;;;;0;;;
+"Visit 4";DMFT-BOP-DPSI-Saliva-pH;26;6;numeric;numeric;mL_saliva_collected_1_2;"ml saliva collected";;1;0;100;mL;;;0;;;
+"Visit 4";DMFT-BOP-DPSI-Saliva-pH;26;7;string;string;"26.7|Time needed for saliva collection";"Time needed for saliva collection";;1;;;;;;0;;;
+"Visit 4";DMFT-BOP-DPSI-Saliva-pH;26;8;numeric;numeric;26.8|pH;pH;;1;;;;;;0;;;
+"Visit 4";"Questionnaire - general questions";27;1;checkbox;checkbox;"27.1|Has anything changed with your health since the last check-up?#Yes";"Has anything changed with your health since the last check-up?";Yes/No;1;;;;;;0;;;
+"Visit 4";"Questionnaire - general questions";27;1;checkbox;checkbox;"27.1|Has anything changed with your health since the last check-up?#No";"Has anything changed with your health since the last check-up?";Yes/No;1;;;;;;0;;;
+"Visit 4";"Questionnaire - general questions";27;1.1;string;string;"27.1.1|If so, explain";"If so, explain";;1;;;;;;0;"Has anything changed with your health since the last check-up?";==;1
+"Visit 4";"Questionnaire - general questions";27;2;checkbox;checkbox;"27.2|Antibiotics in the last 6 months?#Yes";"Antibiotics in the last 6 months?";Yes/No;1;;;;;;0;;;
+"Visit 4";"Questionnaire - general questions";27;2;checkbox;checkbox;"27.2|Antibiotics in the last 6 months?#No";"Antibiotics in the last 6 months?";Yes/No;1;;;;;;0;;;
+"Visit 4";"Questionnaire - general questions";27;2.1;string;string;"27.2.1|If so, explain";"If so, explain";;1;;;;;;0;"Antibiotics in the last 6 months?";==;1
+"Visit 4";"Questionnaire - general questions";27;3;checkbox;checkbox;"27.3|Have you taken any painkillers in the last 24 hours?#Yes";"Have you taken any painkillers in the last 24 hours?";Yes/No;1;;;;;;0;;;
+"Visit 4";"Questionnaire - general questions";27;3;checkbox;checkbox;"27.3|Have you taken any painkillers in the last 24 hours?#No";"Have you taken any painkillers in the last 24 hours?";Yes/No;1;;;;;;0;;;
+"Visit 4";"Questionnaire - general questions";27;3.1;string;string;"27.3.1|If so, explain";"If so, explain";;1;;;;;;0;"Have you taken any painkillers in the last 24 hours?";==;1
+"Visit 4";"Questionnaire - general questions";27;4;checkbox;checkbox;compliants_oral_1_2#Yes;"Have you had any complaints during the last 2 weeks regarding your mouth?";Yes/No;1;;;;;;0;;;
+"Visit 4";"Questionnaire - general questions";27;4;checkbox;checkbox;compliants_oral_1_2#No;"Have you had any complaints during the last 2 weeks regarding your mouth?";Yes/No;1;;;;;;0;;;
+"Visit 4";"Questionnaire - general questions";27;4.1;string;string;"27.4.1|If so, explain";"If so, explain";;1;;;;;;0;"Have you had any complaints during the last 2 weeks regarding your mouth?";==;1
+"Visit 4";"Questionnaire - general questions";27;5;checkbox;checkbox;compliants_gum_1_2#Yes;"Have you had any complaints during the last 2 weeks regarding your gums?";Yes/No;1;;;;;;0;;;
+"Visit 4";"Questionnaire - general questions";27;5;checkbox;checkbox;compliants_gum_1_2#No;"Have you had any complaints during the last 2 weeks regarding your gums?";Yes/No;1;;;;;;0;;;
+"Visit 4";"Questionnaire - general questions";27;5.1;string;string;"27.5.1|If so, explain";"If so, explain";;1;;;;;;0;"Have you had any complaints during the last 2 weeks regarding your gums?";==;1
+"Visit 4";"Questionnaire - general questions";27;6;checkbox;checkbox;treatment_dental_2_weeks_2_2#Yes;"Have you had dental treatment in the past 2 weeks?";Yes/No;1;;;;;;0;;;
+"Visit 4";"Questionnaire - general questions";27;6;checkbox;checkbox;treatment_dental_2_weeks_2_2#No;"Have you had dental treatment in the past 2 weeks?";Yes/No;1;;;;;;0;;;
+"Visit 4";"Questionnaire - general questions";27;6.1;string;string;"27.6.1|If so, explain";"If so, explain";;1;;;;;;0;"Have you had dental treatment in the past 2 weeks?";==;1
+"Visit 4";"Questionnaire - general questions";27;7;checkbox;checkbox;treatment_dental_2_weeks_1_1_2#Yes;"Do you feel healthy (regarding your oral health)?";Yes/No;1;;;;;;0;;;
+"Visit 4";"Questionnaire - general questions";27;7;checkbox;checkbox;treatment_dental_2_weeks_1_1_2#No;"Do you feel healthy (regarding your oral health)?";Yes/No;1;;;;;;0;;;
+"Visit 4";"Questionnaire - general questions";27;7.1;string;string;"27.7.1|If so, explain";"If so, explain";;1;;;;;;0;"Do you feel healthy (regarding your oral health)?";==;0
+"Visit 4";"Questionnaire - Dry mouth";28;1;radio;radio;"28.1|I use liquids to help me swallow the food";"I use liquids to help me swallow the food";"My lips feel dry";1;;;;;;0;;;
+"Visit 4";"Questionnaire - Dry mouth";28;2;radio;radio;"28.2|My mouth feels dry when I eat";"My mouth feels dry when I eat";"My lips feel dry";1;;;;;;0;;;
+"Visit 4";"Questionnaire - Dry mouth";28;3;radio;radio;"28.3|I wake up at night to drink";"I wake up at night to drink";"My lips feel dry";1;;;;;;0;;;
+"Visit 4";"Questionnaire - Dry mouth";28;4;radio;radio;"28.4|My mouth feels dry";"My mouth feels dry";"My lips feel dry";1;;;;;;0;;;
+"Visit 4";"Questionnaire - Dry mouth";28;5;radio;radio;"28.5|It is difficult to eat dry food";"It is difficult to eat dry food";"My lips feel dry";1;;;;;;0;;;
+"Visit 4";"Questionnaire - Dry mouth";28;6;radio;radio;"28.6|I use sweets or lollies to help my mouth feel less dry";"I use sweets or lollies to help my mouth feel less dry";"My lips feel dry";1;;;;;;0;;;
+"Visit 4";"Questionnaire - Dry mouth";28;7;radio;radio;"28.7|I find it difficult to swallow certain types of food";"I find it difficult to swallow certain types of food";"My lips feel dry";1;;;;;;0;;;
+"Visit 4";"Questionnaire - Dry mouth";28;8;radio;radio;"28.8|My facial skin feels dry";"My facial skin feels dry";"My lips feel dry";1;;;;;;0;;;
+"Visit 4";"Questionnaire - Dry mouth";28;9;radio;radio;"28.9|My eyes feel dry";"My eyes feel dry";"My lips feel dry";1;;;;;;0;;;
+"Visit 4";"Questionnaire - Dry mouth";28;10;radio;radio;"28.10|My lips feel dry";"My lips feel dry";"My lips feel dry";1;;;;;;0;;;
+"Visit 4";"Questionnaire - Dry mouth";28;11;radio;radio;"28.11|The inside of my nose feels dry";"The inside of my nose feels dry";"My lips feel dry";1;;;;;;0;;;
+"Visit 4";"Questionnaire - Dry mouth";28;12;numeric;numeric;Total_1_2;Total;;1;1;55;;;;0;;;
+"Visit 4";"Hormonal levels";29;1;string;string;"29.1|Estradiol (pmol/L)";"Estradiol (pmol/L)";;1;;;;;;0;;;
+"Visit 4";"Hormonal levels";29;2;string;string;"29.2|Testosterone (nmol/L)";"Testosterone (nmol/L)";;1;;;;;;0;;;
+"Visit 4";"Hormonal levels";29;3;string;string;"29.3|Free Testosterone (pmol/L)";"Free Testosterone (pmol/L)";;1;;;;;;0;;;

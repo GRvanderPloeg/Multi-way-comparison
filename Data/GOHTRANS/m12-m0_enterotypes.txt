@@ -1,0 +1,71 @@
+m12-m0
+
+Tongue
+Cluster 1
+
+Capnocytophaga gingivalis
+Capnocytophaga leadbetteri
+Fusobacterium periodonticum					(MIC1.2 / MIC1.3 / MIC2 / MIC3)
+Gemella haemolysans/morbillorum/sanguinis			(MIC1.2 / MIC1.3 / MIC2 / MIC3)
+Granulicatella adiacens						(MIC2)
+Haemophilus parainfluenzae					(MIC1.3? / MIC3?)
+Lachnoanaerobaculum umeaense					(MIC1.2 / MIC1.3)
+Neisseria flavescens/subflava					(MIC1.1 / MIC1.2 / MIC2 / MIC3)
+Oribacterium asaccharolyticum					(MIC2)
+Oribacterium parvum
+Peptostreptococcus stomatis					(MIC1.3)
+Porphyromonas pasteri
+Prevotella nanceiensis
+Rothia mucilaginosa
+Streptococcus dentisani/infantis/mitis/oralis			(MIC1.1 / MIC1.2 / MIC1.3 / MIC2 / MIC3)
+Streptococcus salivarius/vestibularis				(MIC1.1 / MIC2 / MIC3)
+Veillonella parvula						(MIC1.1 / MIC1.3 / MIC2 / MIC3)
+
+Cluster 2
+
+Megasphaera micronuciformis					(MIC1.1 / MIC1.2 / MIC1.3 / MIC2 / MIC3)
+Prevotella nigrescens
+Prevotella pallens						(MIC1.2 / MIC1.3 / MIC3)
+Prevotella salivae						(MIC1.1 / MIC1.2 / MIC1.3 / MIC2 / MIC3)				
+Prevotella veroralis						(MIC1.1 / MIC1.3 / MIC2 / MIC3)
+Rothia dentocariosa						(MIC1.2 / MIC1.3 / MIC3)
+Streptococcus australis/parasanguinis-I/parasanguinis-II	(MIC3)
+
+Saliva
+Cluster 1
+
+Actinomyces odontolyticus					(MIC1.3 / MIC2 / MIC3)
+Alloprevotella tannerae
+Dialister invisus
+Peptostreptococcaceae [Eubacterium] brachy
+Prevotella denticola
+Prevotella nigrescens
+Prevotella oris
+Prevotella salivae						(MIC1.1 / MIC1.2 / MIC1.3 / MIC2 / MIC3)
+Rothia dentocariosa						(MIC1.2 / MIC1.3 / MIC3)
+Streptococcus australis/parasanguinis-I/parasanguinis-II	(MIC3)
+Streptococcus dentisani/infantis/mitis/oralis			(MIC1.1 / MIC1.2 / MIC1.3 / MIC2 / MIC3)
+Streptococcus salivarius/vestibularis				(MIC1.1 / MIC2 / MIC3)
+Streptococcus intermedius
+Streptococcus mutans	
+
+Cluster 2
+
+Aggregatibacter segnis						(MIC3)
+Alloprevotella rava
+Capnocytophaga gingivalis
+Capnocytophaga leadbetteri
+Fusobacterium periodonticum					(MIC1.2 / MIC1.3 / MIC2 / MIC3)
+Haemophilus parahaemolyticus/paraphrohaemolyticus/sputorum	(MIC1.3? / MIC3?)
+Haemophilus parainfluenzae					(MIC1.3? / MIC3?)
+Leptotrichia wadei
+Mogibacterium diversum/neglectum/pumilum/vescum
+Neisseria flavescens/subflava					(MIC1.1 / MIC1.2 / MIC2 / MIC3)
+Oribacterium asaccharolyuticum					(MIC2)
+Oribacterium parvum						
+Peptostreptococcus stomatis					(MIC1.3)
+Prevotella melaninogenica					(MIC1.1 / MIC2 / MIC3)
+Prevotella nanceiensis
+Prevotella pallens						(MIC1.2 / MIC1.3 / MIC3)
+Prevotella shahii
+Veillonella parvula						(MIC1.1 / MIC1.3 / MIC2 / MIC3)

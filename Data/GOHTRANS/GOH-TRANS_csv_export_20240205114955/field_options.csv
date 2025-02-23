@@ -1,0 +1,333 @@
+﻿"Option group name";"Option name";"Option value"
+"All of the Time-None of the Time";"All of the time";1
+"All of the Time-None of the Time";"Most of the time";2
+"All of the Time-None of the Time";"A good bit of the time";3
+"All of the Time-None of the Time";"Some of the time";4
+"All of the Time-None of the Time";"A little of the time";5
+"All of the Time-None of the Time";"None of the time";6
+"All of the Time-None of the Time (2)";"All of the time";1
+"All of the Time-None of the Time (2)";"Most of the time";2
+"All of the Time-None of the Time (2)";"Some of the time";3
+"All of the Time-None of the Time (2)";"A little of the time";4
+"All of the Time-None of the Time (2)";"None of the time";5
+Country;Afghanistan;1
+Country;Albania;2
+Country;Algeria;3
+Country;Andorra;4
+Country;Angola;5
+Country;"Antigua and Barbuda";6
+Country;Argentina;7
+Country;Armenia;8
+Country;Australia;9
+Country;Austria;10
+Country;Azerbaijan;11
+Country;Bahamas;12
+Country;Bahrain;13
+Country;Bangladesh;14
+Country;Barbados;15
+Country;Belarus;16
+Country;Belgium;17
+Country;Belize;18
+Country;Benin;19
+Country;Bhutan;20
+Country;Bolivia;21
+Country;"Bosnia and Herzegovina";22
+Country;Botswana;23
+Country;Brazil;24
+Country;Brunei;25
+Country;Bulgaria;26
+Country;"Burkina Faso";27
+Country;Burundi;28
+Country;"Cabo Verde";29
+Country;Cambodia;30
+Country;Cameroon;31
+Country;Canada;32
+Country;"Central African Republic";33
+Country;Chad;34
+Country;Chile;35
+Country;China;36
+Country;Colombia;37
+Country;Comoros;38
+Country;"Democratic Republic of the Congo";39
+Country;"Republic of the Congo";40
+Country;"Costa Rica";41
+Country;"Cote d Ivoire";42
+Country;Croatia;43
+Country;Cuba;44
+Country;Cyprus;45
+Country;"Czech Republic";46
+Country;Denmark;47
+Country;Djibouti;48
+Country;Dominica;49
+Country;"Dominican Republic";50
+Country;Ecuador;51
+Country;Egypt;52
+Country;"El Salvador";53
+Country;"Equatorial Guinea";54
+Country;Eritrea;55
+Country;Estonia;56
+Country;Ethiopia;57
+Country;Fiji;58
+Country;Finland;59
+Country;France;60
+Country;Gabon;61
+Country;Gambia;62
+Country;Georgia;63
+Country;Germany;64
+Country;Ghana;65
+Country;Greece;66
+Country;Grenada;67
+Country;Guatemala;68
+Country;Guinea;69
+Country;Guinea-Bissau;70
+Country;Guyana;71
+Country;Haiti;72
+Country;Honduras;73
+Country;Hungary;74
+Country;Iceland;75
+Country;India;76
+Country;Indonesia;77
+Country;Iran;78
+Country;Iraq;79
+Country;Ireland;80
+Country;Israel;81
+Country;Italy;82
+Country;Jamaica;83
+Country;Japan;84
+Country;Jordan;85
+Country;Kazakhstan;86
+Country;Kenya;87
+Country;Kiribati;88
+Country;Kosovo;89
+Country;Kuwait;90
+Country;Kyrgyzstan;91
+Country;Laos;92
+Country;Latvia;93
+Country;Lebanon;94
+Country;Lesotho;95
+Country;Liberia;96
+Country;Libya;97
+Country;Liechtenstein;98
+Country;Lithuania;99
+Country;Luxembourg;100
+Country;Macedonia;101
+Country;Madagascar;102
+Country;Malawi;103
+Country;Malaysia;104
+Country;Maldives;105
+Country;Mali;106
+Country;Malta;107
+Country;"Marshall Islands";108
+Country;Mauritania;109
+Country;Mauritius;110
+Country;Mexico;111
+Country;Micronesia;112
+Country;Moldova;113
+Country;Monaco;114
+Country;Mongolia;115
+Country;Montenegro;116
+Country;Morocco;117
+Country;Mozambique;118
+Country;"Myanmar (Burma)";119
+Country;Namibia;120
+Country;Nauru;121
+Country;Nepal;122
+Country;Netherlands;123
+Country;"New Zealand";124
+Country;Nicaragua;125
+Country;Niger;126
+Country;Nigeria;127
+Country;"North Korea";128
+Country;Norway;129
+Country;Oman;130
+Country;Pakistan;131
+Country;Palau;132
+Country;Palestine;133
+Country;Panama;134
+Country;"Papua New Guinea";135
+Country;Paraguay;136
+Country;Peru;137
+Country;Philippines;138
+Country;Poland;139
+Country;Portugal;140
+Country;Qatar;141
+Country;Romania;142
+Country;Russia;143
+Country;Rwanda;144
+Country;"Saint Kitts and Nevis";145
+Country;"Saint Lucia";146
+Country;"Saint Vincent and the Grenadines";147
+Country;Samoa;148
+Country;"San Marino";149
+Country;"Sao Tome and Principe";150
+Country;"Saudi Arabia";151
+Country;Senegal;152
+Country;Serbia;153
+Country;Seychelles;154
+Country;"Sierra Leone";155
+Country;Singapore;156
+Country;Slovakia;157
+Country;Slovenia;158
+Country;"Solomon Islands";159
+Country;Somalia;160
+Country;"South Africa";161
+Country;"South Korea";162
+Country;"South Sudan";163
+Country;Spain;164
+Country;"Sri Lanka";165
+Country;Sudan;166
+Country;Suriname;167
+Country;Swaziland;168
+Country;Sweden;169
+Country;Switzerland;170
+Country;Syria;171
+Country;Taiwan;172
+Country;Tajikistan;173
+Country;Tanzania;174
+Country;Thailand;175
+Country;Timor-Leste;176
+Country;Togo;177
+Country;Tonga;178
+Country;"Trinidad and Tobago";179
+Country;Tunisia;180
+Country;Turkey;181
+Country;Turkmenistan;182
+Country;Tuvalu;183
+Country;Uganda;184
+Country;Ukraine;185
+Country;"United Arab Emirates";186
+Country;"United Kingdom";187
+Country;"United States of America";188
+Country;Uruguay;189
+Country;Uzbekistan;190
+Country;Vanuatu;191
+Country;"Vatican City";192
+Country;Venezuela;193
+Country;Vietnam;194
+Country;Yemen;195
+Country;Zambia;196
+Country;Zimbabwe;197
+"Definitely true-Definitely false";"Definitely true";1
+"Definitely true-Definitely false";"Mostly true";2
+"Definitely true-Definitely false";"Don't know";3
+"Definitely true-Definitely false";"Mostly false";4
+"Definitely true-Definitely false";"Definitely false";5
+Excellent-Poor;Excellent;1
+Excellent-Poor;"Very good";2
+Excellent-Poor;Good;3
+Excellent-Poor;Fair;4
+Excellent-Poor;Poor;5
+FamHistory;"Renal disease";0
+FamHistory;Deafness;1
+FamHistory;(Cardio)myopathy;2
+FamHistory;Encephalopathy;3
+FamHistory;"Diabetes Mellitus";4
+FamHistory;"Hypertension/Cardiovascular disease";5
+FamHistory;Thrombosis;6
+FamHistory;Malignancy;7
+"From which molar was the plaque taken from";"First molar";1
+"From which molar was the plaque taken from";"Second molar";2
+"From which molar was the plaque taken from";Both;3
+fuvis_type_grp;"in-patient admission";1
+fuvis_type_grp;"out-patient visit";2
+fuvis_type_grp;"admission to day-care";3
+"GAD-7 scale";"Not at all";0
+"GAD-7 scale";"Several days";1
+"GAD-7 scale";"More than half the days";2
+"GAD-7 scale";"Nearly every day";3
+"Health a year ago";"Much better now than one year ago";1
+"Health a year ago";"Somewhat better now than one year ago";2
+"Health a year ago";"About the same";3
+"Health a year ago";"Somewhat worse now than one year ago";4
+"Health a year ago";"Much worse now than one year ago";5
+Limits;"Yes, limited a lot";1
+Limits;"Yes, limited a little";2
+Limits;"No, not limited at all";3
+med_class_dropdown;"ACE inhibitor (ACEi)";1
+med_class_dropdown;"Angiotensin receptor blocker (ARB)";2
+med_class_dropdown;"Loop diuretics";3
+med_class_dropdown;"Anti-aldosterone diurectics";4
+med_class_dropdown;"Thiazide diuretics";5
+med_class_dropdown;"Other diurectics";6
+med_class_dropdown;"Lipid lowering drugs";7
+med_class_dropdown;Anti-platelets;8
+med_class_dropdown;Anti-coagulants;9
+med_class_dropdown;"Prednisolone (oral administration)";10
+med_class_dropdown;"Methylprednisolone (IV pulse therapy)";11
+med_class_dropdown;Cyclophosphamide;12
+med_class_dropdown;"Cyclosporin A";13
+med_class_dropdown;Tacrolimus;14
+med_class_dropdown;"Mycofenolate Mofetil (MMF)";15
+med_class_dropdown;Azathioprine;16
+med_class_dropdown;Chloorambucil;17
+med_class_dropdown;Rituximab;18
+med_class_dropdown;"Oral anti-diabetics";19
+med_class_dropdown;"Insulin s.c.";20
+med_class_dropdown;"Anti-Blyss (belumimab)";21
+med_class_dropdown;ACTH;22
+med_class_dropdown;Ofatumumab;23
+med_class_dropdown;NSAID;24
+med_class_dropdown;Eculizumab;25
+med_class_dropdown;Bortezomib;26
+med_class_dropdown;Daratumumab;27
+med_class_dropdown;IVIG;29
+med_class_dropdown;"Electrolyte supplements";30
+med_class_dropdown;"Other antihypertensives";31
+med_class_dropdown;"Proton pump inhibitors (PPIs)";32
+med_class_dropdown;"Other medication";33
+"My lips feel dry";Never;1
+"My lips feel dry";Seldom;2
+"My lips feel dry";Sometimes;3
+"My lips feel dry";Regularly;4
+"My lips feel dry";"Almost all the time";5
+"None-Very severe";None;1
+"None-Very severe";"Very mild";2
+"None-Very severe";Mild;3
+"None-Very severe";Moderate;4
+"None-Very severe";Severe;5
+"None-Very severe";"Very severe";6
+"Not at all-Extremely";"Not at all";1
+"Not at all-Extremely";Slightly;2
+"Not at all-Extremely";Moderately;3
+"Not at all-Extremely";"Quite a bit";4
+"Not at all-Extremely";Extremely;5
+"Not at all-Extremely (pain)";"Not at all";1
+"Not at all-Extremely (pain)";"A little bit";2
+"Not at all-Extremely (pain)";Moderately;3
+"Not at all-Extremely (pain)";"Quite a bit";4
+"Not at all-Extremely (pain)";Extremely;5
+og_medunits;Unknown;0
+og_medunits;ug/day;1
+og_medunits;mg/day;2
+og_medunits;g/day;3
+og_medunits;ug/week;4
+og_medunits;mg/week;5
+og_medunits;g/week;6
+og_smoker;No;0
+og_smoker;"No, former";1
+og_smoker;"Yes, current";2
+og_ynu;No;0
+og_ynu;Yes;1
+og_ynu;Unknown;9
+Position;"Lying down";1
+Position;Sitting;2
+Position;Standing;3
+RenalDiagnosis;"Kidney stones";0
+RenalDiagnosis;"Nephrotic syndrome";1
+RenalDiagnosis;"Minimal change nephropathy";2
+RenalDiagnosis;"Focal glomerulosclerosis";3
+RenalDiagnosis;"Membranous nephropathy";4
+RenalDiagnosis;"IgA nephropathy";5
+RenalDiagnosis;"Henoch Schonlein Purpura/ IgA vasculitis";6
+RenalDiagnosis;Glomerulonephritis;7
+RenalDiagnosis;Glomerulopathy;8
+RenalDiagnosis;"Lupus nephritis";9
+RenalDiagnosis;"Diabetic nephropathy";10
+RenalDiagnosis;"Cast nephropathy";11
+RenalDiagnosis;"M. Alport";12
+RenalDiagnosis;Fanconi;13
+RenalDiagnosis;Other;14
+sex;Transwoman;0
+sex;Transman;1
+Yes/No;Yes;1
+Yes/No;No;0

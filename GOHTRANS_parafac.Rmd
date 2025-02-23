@@ -1,0 +1,306 @@
+---
+title: "pfac_pkg"
+output: html_document
+date: "2024-03-21"
+---
+
+```{r library}
+library(tidyverse)
+library(vegan)
+library(ggpubr)
+library(ape)
+library(Polychrome)
+library(parafac4microbiome)
+```
+
+```{r load datasets}
+processedTongue = readRDS("./Data/GOHTRANS/tongue.RDS")
+processedSaliva = readRDS("./Data/GOHTRANS/saliva.RDS")
+processedCytokine = readRDS("./Data/GOHTRANS/cytokine.RDS")
+
+sampleMeta = read.csv("./Data/GOHTRANS/sampleInfo_fixed.csv", sep=" ") %>% as_tibble()
+salivaSampleMeta = sampleMeta[sampleMeta$Niche == "Saliva",]
+
+# Load other metadata and ph
+ph_BOMP = read_delim("Data/GOHTRANS/GOH-TRANS_csv_export_20240205114955/GOH-TRANS_export_20240205.csv",
+                     delim = ";", escape_double = FALSE, trim_ws = TRUE) %>% as_tibble()
+
+df1 = ph_BOMP %>% select(`Participant Id`, starts_with("5.")) %>% mutate(subject = 1:42, numTeeth = `5.1|Number of teeth`, DMFT = `5.2|DMFT`, numBleedingSites = `5.3|Bleeding sites`, boppercent = `5.4|BOP%`, DPSI = `5.5|DPSI`, pH = `5.8|pH`) %>% select(subject, numTeeth, DMFT, numBleedingSites, boppercent, DPSI, pH)
+df2 = ph_BOMP %>% select(`Participant Id`, starts_with("12.")) %>% mutate(subject = 1:42, numTeeth = `12.1|Number of teeth`, DMFT = `12.2|DMFT`, numBleedingSites = `12.3|Bleeding sites`, boppercent = `12.4|BOP%`, DPSI = `12.5|DPSI`, pH = `12.8|pH`) %>% select(subject, numTeeth, DMFT, numBleedingSites, boppercent, DPSI, pH)
+df3 = ph_BOMP %>% select(`Participant Id`, starts_with("19.")) %>% mutate(subject = 1:42, numTeeth = `19.1|Number of teeth`, DMFT = `19.2|DMFT`, numBleedingSites = `19.3|Bleeding sites`, boppercent = `19.4|BOP%`, DPSI = `19.5|DPSI`, pH = `19.8|pH`) %>% select(subject, numTeeth, DMFT, numBleedingSites, boppercent, DPSI, pH)
+df4 = ph_BOMP %>% select(`Participant Id`, starts_with("26.")) %>% mutate(subject = 1:42, numTeeth = `26.1|Number of teeth`, DMFT = `26.2|DMFT`, numBleedingSites = `26.3|Bleeding sites`, boppercent = `26.4|BOP%`, DPSI = `26.5|DPSI`, pH = `26.8|pH`) %>% select(subject, numTeeth, DMFT, numBleedingSites, boppercent, DPSI, pH)
+
+otherMeta = rbind(df1, df2, df3, df4) %>% as_tibble() %>% mutate(newTimepoint = rep(c(0,3,6,12), each=42))
+
+# Remove pH measurements of lower than 0
+otherMeta = otherMeta[!otherMeta$pH < 1,] %>% as_tibble()
+```
+
+```{r check number of components}
+result1 = assessModelQuality(processedTongue$data, numRepetitions=10, numCores=parallel::detectCores()) # 1 comp
+result2 = assessModelQuality(processedSaliva$data, numRepetitions=10, numCores=parallel::detectCores()) # 1 comp
+result3 = assessModelQuality(processedCytokine$data, numRepetitions=10, numCores=parallel::detectCores()) # 1 comp
+```
+
+```{r model tongue}
+# model_tongue = parafac4microbiome::parafac(processedTongue$data, nfac=1, nstart=100)
+# saveRDS(model_tongue, "./Models/PARAFAC/GOHTRANS_tongue_PARAFAC.RDS")
+model_tongue = readRDS("./Models/PARAFAC/GOHTRANS_tongue_PARAFAC.RDS")
+```
+
+```{r model saliva microbiome}
+# model_saliva = parafac4microbiome::parafac(processedSaliva$data, nfac=2, nstart=100)
+# saveRDS(model_saliva, "./Models/PARAFAC/GOHTRANS_saliva_PARAFAC.RDS")
+readRDS("./Models/PARAFAC/GOHTRANS_saliva_PARAFAC.RDS")
+```
+
+```{r model saliva cytokines}
+# model_cytokine = parafac4microbiome::parafac(processedCytokine$data, nfac=3, nstart=100)
+# saveRDS(model_cytokine, "./Models/PARAFAC/GOHTRANS_cytokine_PARAFAC.RDS")
+model_cytokine = readRDS("./Models/PARAFAC/GOHTRANS_cytokine_PARAFAC.RDS")
+```
+
+```{r test metadata - tongue}
+# Tongue
+normalSubjectLoadings = processedTongue$mode1 %>% as_tibble() %>% mutate(Component_1 = model_tongue$Fac[[1]][,1])
+transformedSubjectLoadings = transformPARAFACloadings(model_tongue$Fac, 2, moreOutput=TRUE)$Ftilde %>% as_tibble() %>% mutate(subject = rep(processedTongue$mode1$subject, each=4), newTimepoint = rep(timepoints, 39))
+
+uncorrectedP = rep(NA, 14)
+
+# GenderID
+uncorrectedP[1] = wilcox.test(normalSubjectLoadings %>% filter(GenderID=="TM") %>% select(Component_1) %>% pull(), normalSubjectLoadings %>% filter(GenderID=="TW") %>% select(Component_1) %>% pull())$p.value
+
+# Age
+temp = normalSubjectLoadings %>% left_join(tongueSampleMeta %>% select(subject, GenderID, Age))
+uncorrectedP[2] = cor.test(temp$Component_1, temp$Age)$p.value
+
+# Estradiol
+temp = transformedSubjectLoadings %>% left_join(tongueSampleMeta) %>% select(V1, newTimepoint, Estradiol_pmol_ml)
+uncorrectedP[3] = cor.test(temp$V1, temp$Estradiol_pmol_ml)$p.value
+
+# Testosterone
+temp = transformedSubjectLoadings %>% left_join(tongueSampleMeta) %>% select(V1, newTimepoint, Testosterone_nmol_L)
+uncorrectedP[4] = cor.test(temp$V1, temp$Testosterone_nmol_L)$p.value
+
+# LH
+temp = transformedSubjectLoadings %>% left_join(tongueSampleMeta) %>% select(V1, newTimepoint, LH_U_L)
+uncorrectedP[5] = cor.test(temp$V1, temp$LH_U_L)$p.value
+
+# SHBG
+temp = transformedSubjectLoadings %>% left_join(tongueSampleMeta) %>% select(V1, newTimepoint, SHBG_nmol_L)
+uncorrectedP[6] = cor.test(temp$V1, temp$SHBG_nmol_L)$p.value
+
+# MUC5B
+temp = transformedSubjectLoadings %>% left_join(tongueSampleMeta) %>% select(V1, newTimepoint, MUC_5_B_ug_ml)
+uncorrectedP[7] = cor.test(temp$V1, temp$MUC_5_B_ug_ml)$p.value
+
+# Chitinase
+temp = transformedSubjectLoadings %>% left_join(tongueSampleMeta) %>% select(V1, newTimepoint, Chitinase_AU_ml)
+uncorrectedP[8] = cor.test(temp$V1, temp$Chitinase_AU_ml)$p.value
+
+# S-igA
+temp = transformedSubjectLoadings %>% left_join(tongueSampleMeta) %>% select(V1, newTimepoint, S_IgA_ug_ml)
+uncorrectedP[9] = cor.test(temp$V1, temp$S_IgA_ug_ml)$p.value
+
+# Lysozyme
+temp = transformedSubjectLoadings %>% left_join(tongueSampleMeta) %>% select(V1, newTimepoint, Lysozyme_U_ml)
+uncorrectedP[10] = cor.test(temp$V1, temp$Lysozyme_U_ml)$p.value
+
+# Amylase
+temp = transformedSubjectLoadings %>% left_join(tongueSampleMeta) %>% select(V1, newTimepoint, Amylase_U_ml)
+uncorrectedP[11] = cor.test(temp$V1, temp$Amylase_U_ml)$p.value
+
+# Total protein
+temp = transformedSubjectLoadings %>% left_join(tongueSampleMeta) %>% select(V1, newTimepoint, Total_protein_ug_ml)
+uncorrectedP[12] = cor.test(temp$V1, temp$Total_protein_ug_ml)$p.value
+
+# BOMP
+temp = transformedSubjectLoadings %>% left_join(otherMeta) %>% select(V1, newTimepoint, boppercent)
+uncorrectedP[13] = cor.test(temp$V1, temp$boppercent)$p.value
+
+# pH
+temp = transformedSubjectLoadings %>% left_join(otherMeta) %>% select(V1, newTimepoint, pH)
+uncorrectedP[14] = cor.test(temp$V1, temp$pH)$p.value
+
+print(uncorrectedP)
+correctedP = p.adjust(uncorrectedP, "BH")
+print(correctedP)
+```
+
+```{r test metadata - saliva}
+# Saliva
+normalSubjectLoadings = processedSaliva$mode1 %>% as_tibble() %>% mutate(Component_1 = model_saliva$Fac[[1]][,1], Component_2 = model_saliva$Fac[[1]][,2])
+transformedSubjectLoadings = transformPARAFACloadings(model_saliva$Fac, 2, moreOutput=TRUE)$Ftilde %>% as_tibble() %>% mutate(subject = rep(processedSaliva$mode1$subject, each=4), newTimepoint = rep(timepoints, 39))
+
+uncorrectedP = matrix(NA, nrow=2, ncol=14)
+
+# GenderID
+uncorrectedP[1,1] = wilcox.test(normalSubjectLoadings %>% filter(GenderID=="TM") %>% select(Component_1) %>% pull(), normalSubjectLoadings %>% filter(GenderID=="TW") %>% select(Component_1) %>% pull())$p.value
+uncorrectedP[2,1] = wilcox.test(normalSubjectLoadings %>% filter(GenderID=="TM") %>% select(Component_2) %>% pull(), normalSubjectLoadings %>% filter(GenderID=="TW") %>% select(Component_2) %>% pull())$p.value
+
+# Age
+temp = normalSubjectLoadings %>% left_join(salivaSampleMeta %>% select(subject, GenderID, Age))
+uncorrectedP[1,2] = cor.test(temp$Component_1, temp$Age)$p.value
+uncorrectedP[2,2] = cor.test(temp$Component_2, temp$Age)$p.value
+
+# Estradiol
+temp = transformedSubjectLoadings %>% left_join(salivaSampleMeta) %>% select(V1, V2, newTimepoint, Estradiol_pmol_ml)
+uncorrectedP[1,3] = cor.test(temp$V1, temp$Estradiol_pmol_ml)$p.value
+uncorrectedP[2,3] = cor.test(temp$V2, temp$Estradiol_pmol_ml)$p.value
+
+# Testosterone
+temp = transformedSubjectLoadings %>% left_join(salivaSampleMeta) %>% select(V1, V2, newTimepoint, Testosterone_nmol_L)
+uncorrectedP[1,4] = cor.test(temp$V1, temp$Testosterone_nmol_L)$p.value
+uncorrectedP[2,4] = cor.test(temp$V2, temp$Testosterone_nmol_L)$p.value
+
+# LH
+temp = transformedSubjectLoadings %>% left_join(salivaSampleMeta) %>% select(V1, V2, newTimepoint, LH_U_L)
+uncorrectedP[1,5] = cor.test(temp$V1, temp$LH_U_L)$p.value
+uncorrectedP[2,5] = cor.test(temp$V2, temp$LH_U_L)$p.value
+
+# SHBG
+temp = transformedSubjectLoadings %>% left_join(salivaSampleMeta) %>% select(V1, V2, newTimepoint, SHBG_nmol_L)
+uncorrectedP[1,6] = cor.test(temp$V1, temp$SHBG_nmol_L)$p.value
+uncorrectedP[2,6] = cor.test(temp$V2, temp$SHBG_nmol_L)$p.value
+
+# MUC5B
+temp = transformedSubjectLoadings %>% left_join(salivaSampleMeta) %>% select(V1, V2, newTimepoint, MUC_5_B_ug_ml)
+uncorrectedP[1,7] = cor.test(temp$V1, temp$MUC_5_B_ug_ml)$p.value
+uncorrectedP[2,7] = cor.test(temp$V2, temp$MUC_5_B_ug_ml)$p.value
+
+# Chitinase
+temp = transformedSubjectLoadings %>% left_join(salivaSampleMeta) %>% select(V1, V2, newTimepoint, Chitinase_AU_ml)
+uncorrectedP[1,8] = cor.test(temp$V1, temp$Chitinase_AU_ml)$p.value
+uncorrectedP[2,8] = cor.test(temp$V2, temp$Chitinase_AU_ml)$p.value
+
+# S-igA
+temp = transformedSubjectLoadings %>% left_join(salivaSampleMeta) %>% select(V1, V2, newTimepoint, S_IgA_ug_ml)
+uncorrectedP[1,9] = cor.test(temp$V1, temp$S_IgA_ug_ml)$p.value
+uncorrectedP[2,9] = cor.test(temp$V2, temp$S_IgA_ug_ml)$p.value
+
+# Lysozyme
+temp = transformedSubjectLoadings %>% left_join(salivaSampleMeta) %>% select(V1, V2, newTimepoint, Lysozyme_U_ml)
+uncorrectedP[1,10] = cor.test(temp$V1, temp$Lysozyme_U_ml)$p.value
+uncorrectedP[2,10] = cor.test(temp$V2, temp$Lysozyme_U_ml)$p.value
+
+# Amylase
+temp = transformedSubjectLoadings %>% left_join(salivaSampleMeta) %>% select(V1, V2, newTimepoint, Amylase_U_ml)
+uncorrectedP[1,11] = cor.test(temp$V1, temp$Amylase_U_ml)$p.value
+uncorrectedP[2,11] = cor.test(temp$V2, temp$Amylase_U_ml)$p.value
+
+# Total protein
+temp = transformedSubjectLoadings %>% left_join(salivaSampleMeta) %>% select(V1, V2, newTimepoint, Total_protein_ug_ml)
+uncorrectedP[1,12] = cor.test(temp$V1, temp$Total_protein_ug_ml)$p.value
+uncorrectedP[2,12] = cor.test(temp$V2, temp$Total_protein_ug_ml)$p.value
+
+# BOMP
+temp = transformedSubjectLoadings %>% left_join(otherMeta) %>% select(V1, V2, newTimepoint, boppercent)
+uncorrectedP[1,13] = cor.test(temp$V1, temp$boppercent)$p.value
+uncorrectedP[2,13] = cor.test(temp$V2, temp$boppercent)$p.value
+
+# pH
+temp = transformedSubjectLoadings %>% left_join(otherMeta) %>% select(V1, V2, newTimepoint, pH)
+uncorrectedP[1,14] = cor.test(temp$V1, temp$pH)$p.value
+uncorrectedP[2,14] = cor.test(temp$V2, temp$pH)$p.value
+
+print(uncorrectedP)
+correctedP = matrix(p.adjust(uncorrectedP, "BH"), nrow=2, ncol=14)
+print(correctedP)
+```
+
+```{r test metadata - cytokine}
+# Cytokine
+timepoints = c(0, 3, 12)
+
+normalSubjectLoadings = processedCytokine$mode1 %>% as_tibble() %>% mutate(Component_1 = model_cytokine$Fac[[1]][,1], Component_2 = model_cytokine$Fac[[1]][,2], Component_3 = model_cytokine$Fac[[1]][,3])
+transformedSubjectLoadings = transformPARAFACloadings(model_cytokine$Fac, 2, moreOutput=TRUE)$Ftilde %>% as_tibble() %>% mutate(subject = rep(processedCytokine$mode1$subject, each=3), newTimepoint = rep(timepoints, 27))
+
+uncorrectedP = matrix(NA, nrow=3, ncol=14)
+
+# GenderID
+uncorrectedP[1,1] = wilcox.test(normalSubjectLoadings %>% filter(GenderID=="TM") %>% select(Component_1) %>% pull(), normalSubjectLoadings %>% filter(GenderID=="TW") %>% select(Component_1) %>% pull())$p.value
+uncorrectedP[2,1] = wilcox.test(normalSubjectLoadings %>% filter(GenderID=="TM") %>% select(Component_2) %>% pull(), normalSubjectLoadings %>% filter(GenderID=="TW") %>% select(Component_2) %>% pull())$p.value
+uncorrectedP[3,1] = wilcox.test(normalSubjectLoadings %>% filter(GenderID=="TM") %>% select(Component_3) %>% pull(), normalSubjectLoadings %>% filter(GenderID=="TW") %>% select(Component_3) %>% pull())$p.value
+
+# Age
+temp = normalSubjectLoadings %>% left_join(salivaSampleMeta %>% select(subject, GenderID, Age))
+uncorrectedP[1,2] = cor.test(temp$Component_1, temp$Age)$p.value
+uncorrectedP[2,2] = cor.test(temp$Component_2, temp$Age)$p.value
+uncorrectedP[3,2] = cor.test(temp$Component_3, temp$Age)$p.value
+
+# Estradiol
+temp = transformedSubjectLoadings %>% left_join(salivaSampleMeta) %>% select(V1, V2, V3, newTimepoint, Estradiol_pmol_ml)
+uncorrectedP[1,3] = cor.test(temp$V1, temp$Estradiol_pmol_ml)$p.value
+uncorrectedP[2,3] = cor.test(temp$V2, temp$Estradiol_pmol_ml)$p.value
+uncorrectedP[3,3] = cor.test(temp$V3, temp$Estradiol_pmol_ml)$p.value
+
+# Testosterone
+temp = transformedSubjectLoadings %>% left_join(salivaSampleMeta) %>% select(V1, V2, V3, newTimepoint, Testosterone_nmol_L)
+uncorrectedP[1,4] = cor.test(temp$V1, temp$Testosterone_nmol_L)$p.value
+uncorrectedP[2,4] = cor.test(temp$V2, temp$Testosterone_nmol_L)$p.value
+uncorrectedP[3,4] = cor.test(temp$V3, temp$Testosterone_nmol_L)$p.value
+
+# LH
+temp = transformedSubjectLoadings %>% left_join(salivaSampleMeta) %>% select(V1, V2, V3, newTimepoint, LH_U_L)
+uncorrectedP[1,5] = cor.test(temp$V1, temp$LH_U_L)$p.value
+uncorrectedP[2,5] = cor.test(temp$V2, temp$LH_U_L)$p.value
+uncorrectedP[3,5] = cor.test(temp$V3, temp$LH_U_L)$p.value
+
+# SHBG
+temp = transformedSubjectLoadings %>% left_join(salivaSampleMeta) %>% select(V1, V2, V3, newTimepoint, SHBG_nmol_L)
+uncorrectedP[1,6] = cor.test(temp$V1, temp$SHBG_nmol_L)$p.value
+uncorrectedP[2,6] = cor.test(temp$V2, temp$SHBG_nmol_L)$p.value
+uncorrectedP[3,6] = cor.test(temp$V3, temp$SHBG_nmol_L)$p.value
+
+# MUC5B
+temp = transformedSubjectLoadings %>% left_join(salivaSampleMeta) %>% select(V1, V2, V3, newTimepoint, MUC_5_B_ug_ml)
+uncorrectedP[1,7] = cor.test(temp$V1, temp$MUC_5_B_ug_ml)$p.value
+uncorrectedP[2,7] = cor.test(temp$V2, temp$MUC_5_B_ug_ml)$p.value
+uncorrectedP[3,7] = cor.test(temp$V2, temp$MUC_5_B_ug_ml)$p.value
+
+# Chitinase
+temp = transformedSubjectLoadings %>% left_join(salivaSampleMeta) %>% select(V1, V2, V3, newTimepoint, Chitinase_AU_ml)
+uncorrectedP[1,8] = cor.test(temp$V1, temp$Chitinase_AU_ml)$p.value
+uncorrectedP[2,8] = cor.test(temp$V2, temp$Chitinase_AU_ml)$p.value
+uncorrectedP[3,8] = cor.test(temp$V2, temp$Chitinase_AU_ml)$p.value
+
+# S-igA
+temp = transformedSubjectLoadings %>% left_join(salivaSampleMeta) %>% select(V1, V2, V3, newTimepoint, S_IgA_ug_ml)
+uncorrectedP[1,9] = cor.test(temp$V1, temp$S_IgA_ug_ml)$p.value
+uncorrectedP[2,9] = cor.test(temp$V2, temp$S_IgA_ug_ml)$p.value
+uncorrectedP[3,9] = cor.test(temp$V2, temp$S_IgA_ug_ml)$p.value
+
+# Lysozyme
+temp = transformedSubjectLoadings %>% left_join(salivaSampleMeta) %>% select(V1, V2, V3, newTimepoint, Lysozyme_U_ml)
+uncorrectedP[1,10] = cor.test(temp$V1, temp$Lysozyme_U_ml)$p.value
+uncorrectedP[2,10] = cor.test(temp$V2, temp$Lysozyme_U_ml)$p.value
+uncorrectedP[3,10] = cor.test(temp$V2, temp$Lysozyme_U_ml)$p.value
+
+# Amylase
+temp = transformedSubjectLoadings %>% left_join(salivaSampleMeta) %>% select(V1, V2, V3, newTimepoint, Amylase_U_ml)
+uncorrectedP[1,11] = cor.test(temp$V1, temp$Amylase_U_ml)$p.value
+uncorrectedP[2,11] = cor.test(temp$V2, temp$Amylase_U_ml)$p.value
+uncorrectedP[3,11] = cor.test(temp$V2, temp$Amylase_U_ml)$p.value
+
+# Total protein
+temp = transformedSubjectLoadings %>% left_join(salivaSampleMeta) %>% select(V1, V2, V3, newTimepoint, Total_protein_ug_ml)
+uncorrectedP[1,12] = cor.test(temp$V1, temp$Total_protein_ug_ml)$p.value
+uncorrectedP[2,12] = cor.test(temp$V2, temp$Total_protein_ug_ml)$p.value
+uncorrectedP[3,12] = cor.test(temp$V2, temp$Total_protein_ug_ml)$p.value
+
+# BOMP
+temp = transformedSubjectLoadings %>% left_join(otherMeta) %>% select(V1, V2, V3, newTimepoint, boppercent)
+uncorrectedP[1,13] = cor.test(temp$V1, temp$boppercent)$p.value
+uncorrectedP[2,13] = cor.test(temp$V2, temp$boppercent)$p.value
+uncorrectedP[3,13] = cor.test(temp$V2, temp$boppercent)$p.value
+
+# pH
+temp = transformedSubjectLoadings %>% left_join(otherMeta) %>% select(V1, V2, V3, newTimepoint, pH)
+uncorrectedP[1,14] = cor.test(temp$V1, temp$pH)$p.value
+uncorrectedP[2,14] = cor.test(temp$V2, temp$pH)$p.value
+uncorrectedP[3,14] = cor.test(temp$V2, temp$pH)$p.value
+
+print(uncorrectedP)
+correctedP = matrix(p.adjust(uncorrectedP, "BH"), nrow=3, ncol=14)
+print(correctedP)
+```
