@@ -14,9 +14,9 @@ library(CMTFtoolbox)
 ```
 
 ```{r processing}
-milkMetab_df_bmi = readRDS("./Data/BMI/milkMetab.RDS")
-milk_df_bmi = readRDS("./Data/BMI/milk.RDS")
-faeces_df_bmi = readRDS("./Data/BMI/faeces.RDS")
+milkMetab_df_bmi = readRDS("./Data/BMI/milkMetab_homogenized.RDS")
+milk_df_bmi = readRDS("./Data/BMI/milk_homogenized.RDS")
+faeces_df_bmi = readRDS("./Data/BMI/faeces_homogenized.RDS")
 homogenized_subjectMeta_bmi = readRDS("./Data/BMI/homogenized_subjectMeta.RDS")
 faeces_taxonomy = readRDS("./Data/BMI/faeces_taxonomy.RDS")
 milk_taxonomy = readRDS("./Data/BMI/milk_taxonomy.RDS")
@@ -24,7 +24,7 @@ milkMetab_featureMeta = readRDS("./Data/BMI/milk_metabolites.RDS")
 ```
 
 ```{r prepare input data}
-datasets = list(milkMetab_df_bmi, milk_df_bmi, faeces_df_bmi)
+datasets = list(faeces_df_bmi, milk_df_bmi, milkMetab_df_bmi)
 modes = list(c(1,2,3), c(1,4,5), c(1,6,7))
 Z = setupCMTFdata(datasets, modes, normalize=TRUE)
 ```

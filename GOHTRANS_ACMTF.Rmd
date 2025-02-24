@@ -45,7 +45,8 @@ Z = setupCMTFdata(datasets, modes, normalize=TRUE)
 ```
 
 ```{r check number of components}
-result = investigateFMS(datasets, modes, sharedMode=1, maxNumComponents=3, numFolds=5, numCores = parallel::detectCores(), method="L-BFGS")
+# result = investigateFMS(datasets, modes, sharedMode=1, maxNumComponents=3, numFolds=5, numCores = parallel::detectCores(), method="L-BFGS")
+#ncrossreg works better and finds R = 1
 ```
 
 ```{r fit model}

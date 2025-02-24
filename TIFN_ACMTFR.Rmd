@@ -1,0 +1,117 @@
+---
+title: "BMI_parafac"
+output: html_document
+date: "2025-02-21"
+---
+
+```{r setup}
+library(tidyverse)
+library(ggplot2)
+library(ggpubr)
+library(stringr)
+library(parafac4microbiome)
+library(CMTFtoolbox)
+```
+
+```{r processing}
+processedTongue = readRDS("./Data/TIFN/tongue_homogenized.RDS")
+processedLowling = readRDS("./Data/TIFN/lowling_homogenized.RDS")
+processedLowinter = readRDS("./Data/TIFN/lowinter_homogenized.RDS")
+processedUpling = readRDS("./Data/TIFN/upling_homogenized.RDS")
+processedUpinter = readRDS("./Data/TIFN/upinter_homogenized.RDS")
+processedSaliva = readRDS("./Data/TIFN/saliva_homogenized.RDS")
+processedMetabolomics = readRDS("./Data/TIFN/metabolomics_homogenized.RDS")
+```
+
+```{r Import red fluorescence data}
+rf_data = read.csv("./Data/TIFN/RFdata.csv")
+colnames(rf_data) = c("subject", "id", "fotonr", "day", "group", "RFgroup", "MQH", "SPS(tm)", "Area_delta_R30", "Area_delta_Rmax", "Area_delta_R30_x_Rmax", "gingiva_mean_R_over_G", "gingiva_mean_R_over_G_upper_jaw", "gingiva_mean_R_over_G_lower_jaw")
+rf_data = rf_data %>% as_tibble()
+
+rf_data[rf_data$subject == "VSTPHZ", 1] = "VSTPH2"
+rf_data[rf_data$subject == "D2VZH0", 1] = "DZVZH0"
+rf_data[rf_data$subject == "DLODNN", 1] = "DLODDN"
+rf_data[rf_data$subject == "O3VQFX", 1] = "O3VQFQ"
+rf_data[rf_data$subject == "F80LGT", 1] = "F80LGF"
+rf_data[rf_data$subject == "26QQR0", 1] = "26QQrO"
+
+rf_data2 = read.csv("./Data/TIFN/red_fluorescence_data.csv") %>% as_tibble()
+rf_data2 = rf_data2[,c(2,4,181:192)]
+rf_data = rf_data %>% left_join(rf_data2)
+
+rf = rf_data %>% select(subject, RFgroup) %>% unique()
+```
+
+```{r Import subject metadata}
+age_gender = read.csv("./Data/TIFN/Ploeg_subjectMetadata.csv", sep=";")
+age_gender = age_gender[2:nrow(age_gender),2:ncol(age_gender)]
+age_gender = age_gender %>% as_tibble() %>% filter(onderzoeksgroep == 0) %>% select(naam, leeftijd, geslacht)
+colnames(age_gender) = c("subject", "age", "gender")
+
+# Correction for incorrect subject ids
+age_gender[age_gender$subject == "VSTPHZ", 1] = "VSTPH2"
+age_gender[age_gender$subject == "D2VZH0", 1] = "DZVZH0"
+age_gender[age_gender$subject == "DLODNN", 1] = "DLODDN"
+age_gender[age_gender$subject == "O3VQFX", 1] = "O3VQFQ"
+age_gender[age_gender$subject == "F80LGT", 1] = "F80LGF"
+age_gender[age_gender$subject == "26QQR0", 1] = "26QQrO"
+
+age_gender = age_gender %>% arrange(subject)
+```
+
+```{r prepare input data}
+datasets = list(processedTongue$data, processedLowling$data, processedLowinter$data, processedUpling$data, processedUpinter$data, processedSaliva$data, processedMetabolomics$data)
+modes = list(c(1,2,3), c(1,4,5), c(1,6,7), c(1,8,9), c(1,10,11), c(1,12,13), c(1,14,15))
+Z = setupCMTFdata(datasets, modes, normalize=TRUE)
+
+Y = processedTongue$mode1 %>% left_join(rf_data %>% filter(day==14) %>% select(subject, Area_delta_R30) %>% unique()) %>% select(Area_delta_R30) %>% pull()
+Ycnt = Y - mean(Y)
+```
+
+```{r check number of components}
+# result = investigateFMS(datasets, modes, sharedMode=1, maxNumComponents=3, numFolds=5, numCores = parallel::detectCores(), method="L-BFGS")
+```
+
+```{r fit model}
+model = CMTFtoolbox::acmtfr_opt(Z, Ycnt, 1, pi=0.90)
+```
+
+```{r test metadata tongue}
+model = model
+obj = processedTongue
+
+normalSubjectLoadings = cbind(model$Fac[[1]], obj$mode1) %>% as_tibble()
+transformedSubjectLoadings = transformPARAFACloadings(model$Fac[1:3], 2, moreOutput=TRUE)$Ftilde %>% as_tibble() %>% mutate(subject = rep(obj$mode1$subject, each=7), day = rep(c(-14,0,2,5,9,14,21),40))
+
+uncorrectedP = matrix(0L, nrow=1, ncol=5)
+
+# Plaque%
+temp=transformedSubjectLoadings %>% left_join(rf_data %>% select(subject, day, plaquepercent))
+uncorrectedP[1,1] = cor.test(temp$V1, temp$plaquepercent, method="pearson")$p.value
+# uncorrectedP[2,1] = cor.test(temp$V2, temp$plaquepercent, method="pearson")$p.value
+
+# Bleeding%
+temp=transformedSubjectLoadings %>% left_join(rf_data %>% select(subject, day, bomppercent))
+uncorrectedP[1,2] = cor.test(temp$V1, temp$bomppercent, method="pearson")$p.value
+# uncorrectedP[2,2] = cor.test(temp$V2, temp$bomppercent, method="pearson")$p.value
+
+# RF%
+temp=transformedSubjectLoadings %>% left_join(rf_data %>% select(subject, day, Area_delta_R30))
+uncorrectedP[1,3] = cor.test(temp$V1, temp$Area_delta_R30, method="pearson")$p.value
+# uncorrectedP[2,3] = cor.test(temp$V2, temp$Area_delta_R30, method="pearson")$p.value
+
+# Gender
+partA = normalSubjectLoadings %>% left_join(age_gender) %>% select(1,2,gender) %>% filter(gender==1)
+partB = normalSubjectLoadings %>% left_join(age_gender) %>% select(1,2,gender) %>% filter(gender==2)
+
+uncorrectedP[1,4] = t.test(partA$`model$Fac[[1]]`, partB$`model$Fac[[1]]`)$p.value # Not what I would do nowadays, but this is what is in the TIFN paper
+# uncorrectedP[2,4] = t.test(partA$`2`, partB$`2`)$p.value
+
+# Age
+temp = normalSubjectLoadings %>% left_join(age_gender) %>% select(1,2,age)
+uncorrectedP[1,5] = cor.test(temp$`model$Fac[[1]]`, temp$age, method="pearson")$p.value
+# uncorrectedP[2,5] = cor.test(temp$`2`, temp$age, method="pearson")$p.value
+
+correctedP = matrix(p.adjust(uncorrectedP, "BH"), nrow=1, ncol=5)
+correctedP
+```

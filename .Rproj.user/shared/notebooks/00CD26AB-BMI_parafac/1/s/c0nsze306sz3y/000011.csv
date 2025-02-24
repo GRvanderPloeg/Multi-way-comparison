@@ -1,3 +1,0 @@
-"0","# result = parafac4microbiome::assessModelQuality(faeces_df_bmi, numRepetitions=10, numCores=parallel::detectCores())"
-"0","# result = parafac4microbiome::assessModelQuality(faeces_df_bmi, numRepetitions=10, numCores=parallel::detectCores())"
-"0","faeces_parafac = parafac4microbiome::parafac(faeces_df_bmi, nfac=1, nstart=100)"

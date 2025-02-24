@@ -39,7 +39,6 @@ metadata = metadata[mask,]
 
 # Prepare export of metadata
 mode1 = metadata %>% select(subject, RFgroup) %>% unique() %>% arrange(subject)
-mode2 = taxa
 mode3 = metadata %>% select(visit) %>% unique() %>% arrange(visit) %>% mutate(status=c("Baseline", "EG", "EG", "EG", "EG", "EG", "Resolution"))
 
 # Tongue
@@ -47,8 +46,15 @@ tongueMask = metadata$niche == "tongue"
 df_tongue = counts[tongueMask,]
 metadata_tongue = metadata[tongueMask,]
 
+# Prep feature metadata - THIS IS DIFFERENT FROM TIFN
+sparsity = colSums(df_tongue == 0) / nrow(df_tongue)
+featureMask = sparsity < 1
+df_tongue = df_tongue[,featureMask]
+mode2 = taxa[featureMask,]
+
+# Put into cube
 I = length(unique(metadata$subject))
-J = ncol(counts)
+J = ncol(df_tongue)
 K = max(metadata$visit)
 X = array(0L, c(I,J,K))
 
@@ -69,8 +75,15 @@ lowlingMask = metadata$niche == "lower jaw, lingual"
 df_lowling = counts[lowlingMask,]
 metadata_lowling = metadata[lowlingMask,]
 
+# Prep feature metadata - THIS IS DIFFERENT FROM TIFN
+sparsity = colSums(df_lowling == 0) / nrow(df_lowling)
+featureMask = sparsity < 1
+df_lowling = df_lowling[,featureMask]
+mode2 = taxa[featureMask,]
+
+# Put into cube
 I = length(unique(metadata$subject))
-J = ncol(counts)
+J = ncol(df_lowling)
 K = max(metadata$visit)
 X = array(0L, c(I,J,K))
 
@@ -91,8 +104,15 @@ lowinterMask = metadata$niche == "lower jaw, interproximal"
 df_lowinter = counts[lowinterMask,]
 metadata_lowinter = metadata[lowinterMask,]
 
+# Prep feature metadata - THIS IS DIFFERENT FROM TIFN
+sparsity = colSums(df_lowinter == 0) / nrow(df_lowinter)
+featureMask = sparsity < 1
+df_lowinter = df_lowinter[,featureMask]
+mode2 = taxa[featureMask,]
+
+# Put into cube
 I = length(unique(metadata$subject))
-J = ncol(counts)
+J = ncol(df_lowinter)
 K = max(metadata$visit)
 X = array(0L, c(I,J,K))
 
@@ -113,8 +133,15 @@ uplingMask = metadata$niche == "upper jaw, lingual"
 df_upling = counts[uplingMask,]
 metadata_upling = metadata[uplingMask,]
 
+# Prep feature metadata - THIS IS DIFFERENT FROM TIFN
+sparsity = colSums(df_upling == 0) / nrow(df_upling)
+featureMask = sparsity < 1
+df_upling = df_upling[,featureMask]
+mode2 = taxa[featureMask,]
+
+# Put into cube
 I = length(unique(metadata$subject))
-J = ncol(counts)
+J = ncol(df_upling)
 K = max(metadata$visit)
 X = array(0L, c(I,J,K))
 
@@ -135,8 +162,15 @@ upinterMask = metadata$niche == "upper jaw, interproximal"
 df_upinter = counts[upinterMask,]
 metadata_upinter = metadata[upinterMask,]
 
+# Prep feature metadata - THIS IS DIFFERENT FROM TIFN
+sparsity = colSums(df_upinter == 0) / nrow(df_upinter)
+featureMask = sparsity < 1
+df_upinter = df_upinter[,featureMask]
+mode2 = taxa[featureMask,]
+
+# Put into cube
 I = length(unique(metadata$subject))
-J = ncol(counts)
+J = ncol(df_upinter)
 K = max(metadata$visit)
 X = array(0L, c(I,J,K))
 
@@ -157,8 +191,15 @@ salivaMask = metadata$niche == "saliva"
 df_saliva = counts[salivaMask,]
 metadata_saliva = metadata[salivaMask,]
 
+# Prep feature metadata - THIS IS DIFFERENT FROM TIFN
+sparsity = colSums(df_saliva == 0) / nrow(df_saliva)
+featureMask = sparsity < 1
+df_saliva = df_saliva[,featureMask]
+mode2 = taxa[featureMask,]
+
+# Put into cube
 I = length(unique(metadata$subject))
-J = ncol(counts)
+J = ncol(df_saliva)
 K = max(metadata$visit)
 X = array(0L, c(I,J,K))
 
@@ -189,3 +230,23 @@ saveRDS(processedLowinter, "./Data/TIFN/lowinter.RDS")
 saveRDS(processedUpling, "./Data/TIFN/upling.RDS")
 saveRDS(processedUpinter, "./Data/TIFN/upinter.RDS")
 saveRDS(processedSaliva, "./Data/TIFN/saliva.RDS")
+
+# Metabolomics
+df = read.csv("./Data/TIFN/processed_metabolome/Metabolomics.csv", header=FALSE) %>% as_tibble()
+mode1 = read.csv("./Data/TIFN/processed_metabolome/Metabolomics_id_meta.csv", header=FALSE) %>% as_tibble() %>% mutate(subject = V1) %>% select(-V1) %>% left_join(rf)
+mode2 = read.csv("./Data/TIFN/processed_metabolome/Metabolomics_feature_meta.csv", header=FALSE) %>% as_tibble()
+colnames(mode2) = c("Type", "Function", "Name")
+mode3 = mode3 %>% filter(visit %in% 1:5)
+
+I = length(unique(mode1$subject))
+J = nrow(mode2)
+K = max(mode3$visit)
+X = array(0L, c(I,J,K))
+
+for(k in 1:K){
+  X[,,k] = df[,(400*(k-1)+1):(400*k)] %>%
+    as.matrix()
+}
+
+metabolomics = list("data"=X, "mode1"=mode1, "mode2"=mode2, "mode3"=mode3)
+saveRDS(metabolomics, "./Data/TIFN/metabolomics.RDS")

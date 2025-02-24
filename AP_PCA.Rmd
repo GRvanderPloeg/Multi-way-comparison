@@ -13,9 +13,9 @@ library(ggpubr)
 ```
 
 ```{r load phyloseq object and convert}
-processedGeorgiou = readRDS("./Data/AP/cytokines_processed.RDS")
-microbiome_cnt_scl = readRDS("./Data/AP/microbiome_processed.RDS")
-taxonomy_processed = readRDS("./Data/AP/taxonomy_processed.RDS")
+processedGeorgiou = readRDS("./Data/AP/cytokines_homogenized.RDS")
+microbiome_cnt_scl = readRDS("./Data/AP/microbiome_homogenized.RDS")
+taxonomy_processed = readRDS("./Data/AP/taxonomy_homogenized.RDS")
 ```
 
 ```{r svd}

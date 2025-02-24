@@ -1,7 +1,0 @@
-"0","milkMetab_df_bmi = readRDS(""./Data/BMI/milkMetab.RDS"")"
-"0","milk_df_bmi = readRDS(""./Data/BMI/milk.RDS"")"
-"0","faeces_df_bmi = readRDS(""./Data/BMI/faeces.RDS"")"
-"0","homogenized_subjectMeta = readRDS(""./Data/BMI/homogenized_subjectMeta.RDS"")"
-"0","faeces_taxonomy = readRDS(""./Data/BMI/faeces_taxonomy.RDS"")"
-"0","milk_taxonomy = readRDS(""./Data/BMI/milk_taxonomy.RDS"")"
-"0","milkMetab_featureMeta = readRDS(""./Data/BMI/milk_metabolites.RDS"")"

@@ -1,0 +1,457 @@
+---
+title: "BMI_parafac"
+output: html_document
+date: "2025-02-21"
+---
+
+```{r setup}
+library(tidyverse)
+library(ggplot2)
+library(ggpubr)
+library(stringr)
+library(parafac4microbiome)
+library(CMTFtoolbox)
+```
+
+```{r processing}
+processedTongue = readRDS("./Data/TIFN/tongue.RDS")
+processedLowling = readRDS("./Data/TIFN/lowling.RDS")
+processedLowinter = readRDS("./Data/TIFN/lowinter.RDS")
+processedUpling = readRDS("./Data/TIFN/upling.RDS")
+processedUpinter = readRDS("./Data/TIFN/upinter.RDS")
+processedSaliva = readRDS("./Data/TIFN/saliva.RDS")
+processedMetabolomics = readRDS("./Data/TIFN/metabolomics.RDS")
+```
+
+```{r Import red fluorescence data}
+rf_data = read.csv("./Data/TIFN/RFdata.csv")
+colnames(rf_data) = c("subject", "id", "fotonr", "day", "group", "RFgroup", "MQH", "SPS(tm)", "Area_delta_R30", "Area_delta_Rmax", "Area_delta_R30_x_Rmax", "gingiva_mean_R_over_G", "gingiva_mean_R_over_G_upper_jaw", "gingiva_mean_R_over_G_lower_jaw")
+rf_data = rf_data %>% as_tibble()
+
+rf_data[rf_data$subject == "VSTPHZ", 1] = "VSTPH2"
+rf_data[rf_data$subject == "D2VZH0", 1] = "DZVZH0"
+rf_data[rf_data$subject == "DLODNN", 1] = "DLODDN"
+rf_data[rf_data$subject == "O3VQFX", 1] = "O3VQFQ"
+rf_data[rf_data$subject == "F80LGT", 1] = "F80LGF"
+rf_data[rf_data$subject == "26QQR0", 1] = "26QQrO"
+
+rf_data2 = read.csv("./Data/TIFN/red_fluorescence_data.csv") %>% as_tibble()
+rf_data2 = rf_data2[,c(2,4,181:192)]
+rf_data = rf_data %>% left_join(rf_data2)
+
+rf = rf_data %>% select(subject, RFgroup) %>% unique()
+```
+
+```{r Import subject metadata}
+age_gender = read.csv("./Data/TIFN/Ploeg_subjectMetadata.csv", sep=";")
+age_gender = age_gender[2:nrow(age_gender),2:ncol(age_gender)]
+age_gender = age_gender %>% as_tibble() %>% filter(onderzoeksgroep == 0) %>% select(naam, leeftijd, geslacht)
+colnames(age_gender) = c("subject", "age", "gender")
+
+# Correction for incorrect subject ids
+age_gender[age_gender$subject == "VSTPHZ", 1] = "VSTPH2"
+age_gender[age_gender$subject == "D2VZH0", 1] = "DZVZH0"
+age_gender[age_gender$subject == "DLODNN", 1] = "DLODDN"
+age_gender[age_gender$subject == "O3VQFX", 1] = "O3VQFQ"
+age_gender[age_gender$subject == "F80LGT", 1] = "F80LGF"
+age_gender[age_gender$subject == "26QQR0", 1] = "26QQrO"
+
+age_gender = age_gender %>% arrange(subject)
+```
+
+```{r fit NPLS for tongue}
+Y = processedTongue$mode1 %>% left_join(rf_data %>% filter(day==14) %>% select(subject, Area_delta_R30) %>% unique()) %>% select(Area_delta_R30) %>% pull()
+Ycnt = Y - mean(Y)
+
+X = processedTongue$data
+X[is.na(X)] = 0 # sNPLS cannot handle NAs - very stupid
+modelTongue = sNPLS::sNPLS(X, as.matrix(Ycnt), 1, threshold_j=0, threshold_k=0, scale.X = FALSE, scale.Y=FALSE, center.X=FALSE, center.Y=FALSE)
+
+saveRDS(modelTongue, "./Models/NPLS/TIFN_tongue_NPLS.RDS")
+```
+
+```{r fit NPLS for lowling}
+Y = processedLowling$mode1 %>% left_join(rf_data %>% filter(day==14) %>% select(subject, Area_delta_R30) %>% unique()) %>% select(Area_delta_R30) %>% pull()
+Ycnt = Y - mean(Y)
+
+X = processedLowling$data
+X[is.na(X)] = 0 # sNPLS cannot handle NAs - very stupid
+modelLowling = sNPLS::sNPLS(X, as.matrix(Ycnt), 1, threshold_j=0, threshold_k=0, scale.X = FALSE, scale.Y=FALSE, center.X=FALSE, center.Y=FALSE)
+
+saveRDS(modelLowling, "./Models/NPLS/TIFN_lowling_NPLS.RDS")
+```
+```{r fit NPLS for lowinter}
+Y = processedLowinter$mode1 %>% left_join(rf_data %>% filter(day==14) %>% select(subject, Area_delta_R30) %>% unique()) %>% select(Area_delta_R30) %>% pull()
+Ycnt = Y - mean(Y)
+
+X = processedLowinter$data
+X[is.na(X)] = 0 # sNPLS cannot handle NAs - very stupid
+modelLowinter = sNPLS::sNPLS(X, as.matrix(Ycnt), 1, threshold_j=0, threshold_k=0, scale.X = FALSE, scale.Y=FALSE, center.X=FALSE, center.Y=FALSE)
+
+saveRDS(modelLowinter, "./Models/NPLS/TIFN_lowinter_NPLS.RDS")
+```
+```{r fit NPLS for upling}
+Y = processedUpling$mode1 %>% left_join(rf_data %>% filter(day==14) %>% select(subject, Area_delta_R30) %>% unique()) %>% select(Area_delta_R30) %>% pull()
+Ycnt = Y - mean(Y)
+
+X = processedUpling$data
+X[is.na(X)] = 0 # sNPLS cannot handle NAs - very stupid
+modelUpling = sNPLS::sNPLS(X, as.matrix(Ycnt), 1, threshold_j=0, threshold_k=0, scale.X = FALSE, scale.Y=FALSE, center.X=FALSE, center.Y=FALSE)
+
+saveRDS(modelUpling, "./Models/NPLS/TIFN_upling_NPLS.RDS")
+```
+```{r fit NPLS for upinter}
+Y = processedUpinter$mode1 %>% left_join(rf_data %>% filter(day==14) %>% select(subject, Area_delta_R30) %>% unique()) %>% select(Area_delta_R30) %>% pull()
+Ycnt = Y - mean(Y)
+
+X = processedUpinter$data
+X[is.na(X)] = 0 # sNPLS cannot handle NAs - very stupid
+modelUpinter = sNPLS::sNPLS(X, as.matrix(Ycnt), 1, threshold_j=0, threshold_k=0, scale.X = FALSE, scale.Y=FALSE, center.X=FALSE, center.Y=FALSE)
+
+saveRDS(modelUpinter, "./Models/NPLS/TIFN_upinter_NPLS.RDS")
+```
+```{r fit NPLS for saliva}
+Y = processedSaliva$mode1 %>% left_join(rf_data %>% filter(day==14) %>% select(subject, Area_delta_R30) %>% unique()) %>% select(Area_delta_R30) %>% pull()
+Ycnt = Y - mean(Y)
+
+X = processedSaliva$data
+X[is.na(X)] = 0 # sNPLS cannot handle NAs - very stupid
+modelSaliva = sNPLS::sNPLS(X, as.matrix(Ycnt), 1, threshold_j=0, threshold_k=0, scale.X = FALSE, scale.Y=FALSE, center.X=FALSE, center.Y=FALSE)
+
+saveRDS(modelSaliva, "./Models/NPLS/TIFN_saliva_NPLS.RDS")
+```
+
+```{r fit NPLS for metabolomics}
+Y = processedMetabolomics$mode1 %>% left_join(rf_data %>% filter(day==14) %>% select(subject, Area_delta_R30) %>% unique()) %>% select(Area_delta_R30) %>% pull()
+Ycnt = Y - mean(Y)
+
+X = processedMetabolomics$data
+X[is.na(X)] = 0 # sNPLS cannot handle NAs - very stupid
+modelMetabolomics = sNPLS::sNPLS(X, as.matrix(Ycnt), 1, threshold_j=0, threshold_k=0, scale.X = FALSE, scale.Y=FALSE, center.X=FALSE, center.Y=FALSE)
+
+saveRDS(modelMetabolomics, "./Models/NPLS/TIFN_metabolomics_NPLS.RDS")
+```
+
+```{r test metadata tongue}
+model = modelTongue
+obj = processedTongue
+Fac = list(model$T, model$Wj, model$Wk)
+
+normalSubjectLoadings = cbind(model$T, obj$mode1) %>% as_tibble()
+transformedSubjectLoadings = transformPARAFACloadings(Fac, 2, moreOutput=TRUE)$Ftilde %>% as_tibble() %>% mutate(subject = rep(obj$mode1$subject, each=7), day = rep(c(-14,0,2,5,9,14,21),41))
+
+uncorrectedP = matrix(0L, nrow=1, ncol=5)
+
+# Plaque%
+temp=transformedSubjectLoadings %>% left_join(rf_data %>% select(subject, day, plaquepercent))
+uncorrectedP[1,1] = cor.test(temp$V1, temp$plaquepercent, method="pearson")$p.value
+# uncorrectedP[2,1] = cor.test(temp$V2, temp$plaquepercent, method="pearson")$p.value
+
+# Bleeding%
+temp=transformedSubjectLoadings %>% left_join(rf_data %>% select(subject, day, bomppercent))
+uncorrectedP[1,2] = cor.test(temp$V1, temp$bomppercent, method="pearson")$p.value
+# uncorrectedP[2,2] = cor.test(temp$V2, temp$bomppercent, method="pearson")$p.value
+
+# RF%
+temp=transformedSubjectLoadings %>% left_join(rf_data %>% select(subject, day, Area_delta_R30))
+uncorrectedP[1,3] = cor.test(temp$V1, temp$Area_delta_R30, method="pearson")$p.value
+# uncorrectedP[2,3] = cor.test(temp$V2, temp$Area_delta_R30, method="pearson")$p.value
+
+# Gender
+partA = normalSubjectLoadings %>% left_join(age_gender) %>% select(1,2,gender) %>% filter(gender==1)
+partB = normalSubjectLoadings %>% left_join(age_gender) %>% select(1,2,gender) %>% filter(gender==2)
+
+uncorrectedP[1,4] = t.test(partA$`Comp. 1`, partB$`Comp. 1`)$p.value # Not what I would do nowadays, but this is what is in the TIFN paper
+# uncorrectedP[2,4] = t.test(partA$`2`, partB$`2`)$p.value
+
+# Age
+temp = normalSubjectLoadings %>% left_join(age_gender) %>% select(1,2,age)
+uncorrectedP[1,5] = cor.test(temp$`Comp. 1`, temp$age, method="pearson")$p.value
+# uncorrectedP[2,5] = cor.test(temp$`2`, temp$age, method="pearson")$p.value
+
+correctedP = matrix(p.adjust(uncorrectedP, "BH"), nrow=1, ncol=5)
+correctedP
+```
+
+```{r test metadata lowling}
+model = modelLowling
+obj = processedLowling
+Fac = list(model$T, model$Wj, model$Wk)
+
+normalSubjectLoadings = cbind(model$T, obj$mode1) %>% as_tibble()
+transformedSubjectLoadings = transformPARAFACloadings(Fac, 2, moreOutput=TRUE)$Ftilde %>% as_tibble() %>% mutate(subject = rep(obj$mode1$subject, each=7), day = rep(c(-14,0,2,5,9,14,21),41))
+
+uncorrectedP = matrix(0L, nrow=1, ncol=5)
+
+# Plaque%
+temp=transformedSubjectLoadings %>% left_join(rf_data %>% select(subject, day, plaquepercent))
+uncorrectedP[1,1] = cor.test(temp$V1, temp$plaquepercent, method="pearson")$p.value
+# uncorrectedP[2,1] = cor.test(temp$V2, temp$plaquepercent, method="pearson")$p.value
+
+# Bleeding%
+temp=transformedSubjectLoadings %>% left_join(rf_data %>% select(subject, day, bomppercent))
+uncorrectedP[1,2] = cor.test(temp$V1, temp$bomppercent, method="pearson")$p.value
+# uncorrectedP[2,2] = cor.test(temp$V2, temp$bomppercent, method="pearson")$p.value
+
+# RF%
+temp=transformedSubjectLoadings %>% left_join(rf_data %>% select(subject, day, Area_delta_R30))
+uncorrectedP[1,3] = cor.test(temp$V1, temp$Area_delta_R30, method="pearson")$p.value
+# uncorrectedP[2,3] = cor.test(temp$V2, temp$Area_delta_R30, method="pearson")$p.value
+
+# Gender
+partA = normalSubjectLoadings %>% left_join(age_gender) %>% select(1,2,gender) %>% filter(gender==1)
+partB = normalSubjectLoadings %>% left_join(age_gender) %>% select(1,2,gender) %>% filter(gender==2)
+
+uncorrectedP[1,4] = t.test(partA$`Comp. 1`, partB$`Comp. 1`)$p.value # Not what I would do nowadays, but this is what is in the TIFN paper
+# uncorrectedP[2,4] = t.test(partA$`2`, partB$`2`)$p.value
+
+# Age
+temp = normalSubjectLoadings %>% left_join(age_gender) %>% select(1,2,age)
+uncorrectedP[1,5] = cor.test(temp$`Comp. 1`, temp$age, method="pearson")$p.value
+# uncorrectedP[2,5] = cor.test(temp$`2`, temp$age, method="pearson")$p.value
+
+correctedP = matrix(p.adjust(uncorrectedP, "BH"), nrow=1, ncol=5)
+correctedP
+```
+
+```{r test metadata lowinter}
+model = modelLowinter
+obj = processedLowinter
+Fac = list(model$T, model$Wj, model$Wk)
+
+normalSubjectLoadings = cbind(model$T, obj$mode1) %>% as_tibble()
+transformedSubjectLoadings = transformPARAFACloadings(Fac, 2, moreOutput=TRUE)$Ftilde %>% as_tibble() %>% mutate(subject = rep(obj$mode1$subject, each=7), day = rep(c(-14,0,2,5,9,14,21),41))
+
+uncorrectedP = matrix(0L, nrow=1, ncol=5)
+
+# Plaque%
+temp=transformedSubjectLoadings %>% left_join(rf_data %>% select(subject, day, plaquepercent))
+uncorrectedP[1,1] = cor.test(temp$V1, temp$plaquepercent, method="pearson")$p.value
+# uncorrectedP[2,1] = cor.test(temp$V2, temp$plaquepercent, method="pearson")$p.value
+
+# Bleeding%
+temp=transformedSubjectLoadings %>% left_join(rf_data %>% select(subject, day, bomppercent))
+uncorrectedP[1,2] = cor.test(temp$V1, temp$bomppercent, method="pearson")$p.value
+# uncorrectedP[2,2] = cor.test(temp$V2, temp$bomppercent, method="pearson")$p.value
+
+# RF%
+temp=transformedSubjectLoadings %>% left_join(rf_data %>% select(subject, day, Area_delta_R30))
+uncorrectedP[1,3] = cor.test(temp$V1, temp$Area_delta_R30, method="pearson")$p.value
+# uncorrectedP[2,3] = cor.test(temp$V2, temp$Area_delta_R30, method="pearson")$p.value
+
+# Gender
+partA = normalSubjectLoadings %>% left_join(age_gender) %>% select(1,2,gender) %>% filter(gender==1)
+partB = normalSubjectLoadings %>% left_join(age_gender) %>% select(1,2,gender) %>% filter(gender==2)
+
+uncorrectedP[1,4] = t.test(partA$`Comp. 1`, partB$`Comp. 1`)$p.value # Not what I would do nowadays, but this is what is in the TIFN paper
+# uncorrectedP[2,4] = t.test(partA$`2`, partB$`2`)$p.value
+
+# Age
+temp = normalSubjectLoadings %>% left_join(age_gender) %>% select(1,2,age)
+uncorrectedP[1,5] = cor.test(temp$`Comp. 1`, temp$age, method="pearson")$p.value
+# uncorrectedP[2,5] = cor.test(temp$`2`, temp$age, method="pearson")$p.value
+
+correctedP = matrix(p.adjust(uncorrectedP, "BH"), nrow=1, ncol=5)
+correctedP
+```
+
+```{r test metadata upling}
+model = modelUpling
+obj = processedUpling
+Fac = list(model$T, model$Wj, model$Wk)
+
+normalSubjectLoadings = cbind(model$T, obj$mode1) %>% as_tibble()
+transformedSubjectLoadings = transformPARAFACloadings(Fac, 2, moreOutput=TRUE)$Ftilde %>% as_tibble() %>% mutate(subject = rep(obj$mode1$subject, each=7), day = rep(c(-14,0,2,5,9,14,21),41))
+
+uncorrectedP = matrix(0L, nrow=1, ncol=5)
+
+# Plaque%
+temp=transformedSubjectLoadings %>% left_join(rf_data %>% select(subject, day, plaquepercent))
+uncorrectedP[1,1] = cor.test(temp$V1, temp$plaquepercent, method="pearson")$p.value
+# uncorrectedP[2,1] = cor.test(temp$V2, temp$plaquepercent, method="pearson")$p.value
+
+# Bleeding%
+temp=transformedSubjectLoadings %>% left_join(rf_data %>% select(subject, day, bomppercent))
+uncorrectedP[1,2] = cor.test(temp$V1, temp$bomppercent, method="pearson")$p.value
+# uncorrectedP[2,2] = cor.test(temp$V2, temp$bomppercent, method="pearson")$p.value
+
+# RF%
+temp=transformedSubjectLoadings %>% left_join(rf_data %>% select(subject, day, Area_delta_R30))
+uncorrectedP[1,3] = cor.test(temp$V1, temp$Area_delta_R30, method="pearson")$p.value
+# uncorrectedP[2,3] = cor.test(temp$V2, temp$Area_delta_R30, method="pearson")$p.value
+
+# Gender
+partA = normalSubjectLoadings %>% left_join(age_gender) %>% select(1,2,gender) %>% filter(gender==1)
+partB = normalSubjectLoadings %>% left_join(age_gender) %>% select(1,2,gender) %>% filter(gender==2)
+
+uncorrectedP[1,4] = t.test(partA$`Comp. 1`, partB$`Comp. 1`)$p.value # Not what I would do nowadays, but this is what is in the TIFN paper
+# uncorrectedP[2,4] = t.test(partA$`2`, partB$`2`)$p.value
+
+# Age
+temp = normalSubjectLoadings %>% left_join(age_gender) %>% select(1,2,age)
+uncorrectedP[1,5] = cor.test(temp$`Comp. 1`, temp$age, method="pearson")$p.value
+# uncorrectedP[2,5] = cor.test(temp$`2`, temp$age, method="pearson")$p.value
+
+correctedP = matrix(p.adjust(uncorrectedP, "BH"), nrow=1, ncol=5)
+correctedP
+```
+
+```{r test metadata upinter}
+model = modelUpinter
+obj = processedUpinter
+Fac = list(model$T, model$Wj, model$Wk)
+
+normalSubjectLoadings = cbind(model$T, obj$mode1) %>% as_tibble()
+transformedSubjectLoadings = transformPARAFACloadings(Fac, 2, moreOutput=TRUE)$Ftilde %>% as_tibble() %>% mutate(subject = rep(obj$mode1$subject, each=7), day = rep(c(-14,0,2,5,9,14,21),41))
+
+uncorrectedP = matrix(0L, nrow=1, ncol=5)
+
+# Plaque%
+temp=transformedSubjectLoadings %>% left_join(rf_data %>% select(subject, day, plaquepercent))
+uncorrectedP[1,1] = cor.test(temp$V1, temp$plaquepercent, method="pearson")$p.value
+# uncorrectedP[2,1] = cor.test(temp$V2, temp$plaquepercent, method="pearson")$p.value
+
+# Bleeding%
+temp=transformedSubjectLoadings %>% left_join(rf_data %>% select(subject, day, bomppercent))
+uncorrectedP[1,2] = cor.test(temp$V1, temp$bomppercent, method="pearson")$p.value
+# uncorrectedP[2,2] = cor.test(temp$V2, temp$bomppercent, method="pearson")$p.value
+
+# RF%
+temp=transformedSubjectLoadings %>% left_join(rf_data %>% select(subject, day, Area_delta_R30))
+uncorrectedP[1,3] = cor.test(temp$V1, temp$Area_delta_R30, method="pearson")$p.value
+# uncorrectedP[2,3] = cor.test(temp$V2, temp$Area_delta_R30, method="pearson")$p.value
+
+# Gender
+partA = normalSubjectLoadings %>% left_join(age_gender) %>% select(1,2,gender) %>% filter(gender==1)
+partB = normalSubjectLoadings %>% left_join(age_gender) %>% select(1,2,gender) %>% filter(gender==2)
+
+uncorrectedP[1,4] = t.test(partA$`Comp. 1`, partB$`Comp. 1`)$p.value # Not what I would do nowadays, but this is what is in the TIFN paper
+# uncorrectedP[2,4] = t.test(partA$`2`, partB$`2`)$p.value
+
+# Age
+temp = normalSubjectLoadings %>% left_join(age_gender) %>% select(1,2,age)
+uncorrectedP[1,5] = cor.test(temp$`Comp. 1`, temp$age, method="pearson")$p.value
+# uncorrectedP[2,5] = cor.test(temp$`2`, temp$age, method="pearson")$p.value
+
+correctedP = matrix(p.adjust(uncorrectedP, "BH"), nrow=1, ncol=5)
+correctedP
+```
+
+```{r test metadata saliva}
+model = modelSaliva
+obj = processedSaliva
+Fac = list(model$T, model$Wj, model$Wk)
+
+normalSubjectLoadings = cbind(model$T, obj$mode1) %>% as_tibble()
+transformedSubjectLoadings = transformPARAFACloadings(Fac, 2, moreOutput=TRUE)$Ftilde %>% as_tibble() %>% mutate(subject = rep(obj$mode1$subject, each=7), day = rep(c(-14,0,2,5,9,14,21),41))
+
+uncorrectedP = matrix(0L, nrow=1, ncol=5)
+
+# Plaque%
+temp=transformedSubjectLoadings %>% left_join(rf_data %>% select(subject, day, plaquepercent))
+uncorrectedP[1,1] = cor.test(temp$V1, temp$plaquepercent, method="pearson")$p.value
+# uncorrectedP[2,1] = cor.test(temp$V2, temp$plaquepercent, method="pearson")$p.value
+
+# Bleeding%
+temp=transformedSubjectLoadings %>% left_join(rf_data %>% select(subject, day, bomppercent))
+uncorrectedP[1,2] = cor.test(temp$V1, temp$bomppercent, method="pearson")$p.value
+# uncorrectedP[2,2] = cor.test(temp$V2, temp$bomppercent, method="pearson")$p.value
+
+# RF%
+temp=transformedSubjectLoadings %>% left_join(rf_data %>% select(subject, day, Area_delta_R30))
+uncorrectedP[1,3] = cor.test(temp$V1, temp$Area_delta_R30, method="pearson")$p.value
+# uncorrectedP[2,3] = cor.test(temp$V2, temp$Area_delta_R30, method="pearson")$p.value
+
+# Gender
+partA = normalSubjectLoadings %>% left_join(age_gender) %>% select(1,2,gender) %>% filter(gender==1)
+partB = normalSubjectLoadings %>% left_join(age_gender) %>% select(1,2,gender) %>% filter(gender==2)
+
+uncorrectedP[1,4] = t.test(partA$`Comp. 1`, partB$`Comp. 1`)$p.value # Not what I would do nowadays, but this is what is in the TIFN paper
+# uncorrectedP[2,4] = t.test(partA$`2`, partB$`2`)$p.value
+
+# Age
+temp = normalSubjectLoadings %>% left_join(age_gender) %>% select(1,2,age)
+uncorrectedP[1,5] = cor.test(temp$`Comp. 1`, temp$age, method="pearson")$p.value
+# uncorrectedP[2,5] = cor.test(temp$`2`, temp$age, method="pearson")$p.value
+
+correctedP = matrix(p.adjust(uncorrectedP, "BH"), nrow=1, ncol=5)
+correctedP
+```
+
+```{r test metadata metabolomics}
+model = modelMetabolomics
+obj = processedMetabolomics
+Fac = list(model$T, model$Wj, model$Wk)
+
+normalSubjectLoadings = cbind(model$T, obj$mode1) %>% as_tibble()
+transformedSubjectLoadings = transformPARAFACloadings(Fac, 2, moreOutput=TRUE)$Ftilde %>% as_tibble() %>% mutate(subject = rep(obj$mode1$subject, each=5), day = rep(c(0,2,5,9,14),40))
+
+uncorrectedP = matrix(0L, nrow=1, ncol=5)
+
+# Plaque%
+temp=transformedSubjectLoadings %>% left_join(rf_data %>% select(subject, day, plaquepercent))
+uncorrectedP[1,1] = cor.test(temp$V1, temp$plaquepercent, method="pearson")$p.value
+# uncorrectedP[2,1] = cor.test(temp$V2, temp$plaquepercent, method="pearson")$p.value
+
+# Bleeding%
+temp=transformedSubjectLoadings %>% left_join(rf_data %>% select(subject, day, bomppercent))
+uncorrectedP[1,2] = cor.test(temp$V1, temp$bomppercent, method="pearson")$p.value
+# uncorrectedP[2,2] = cor.test(temp$V2, temp$bomppercent, method="pearson")$p.value
+
+# RF%
+temp=transformedSubjectLoadings %>% left_join(rf_data %>% select(subject, day, Area_delta_R30))
+uncorrectedP[1,3] = cor.test(temp$V1, temp$Area_delta_R30, method="pearson")$p.value
+# uncorrectedP[2,3] = cor.test(temp$V2, temp$Area_delta_R30, method="pearson")$p.value
+
+# Gender
+partA = normalSubjectLoadings %>% left_join(age_gender) %>% select(1,2,gender) %>% filter(gender==1)
+partB = normalSubjectLoadings %>% left_join(age_gender) %>% select(1,2,gender) %>% filter(gender==2)
+
+uncorrectedP[1,4] = t.test(partA$`Comp. 1`, partB$`Comp. 1`)$p.value # Not what I would do nowadays, but this is what is in the TIFN paper
+# uncorrectedP[2,4] = t.test(partA$`2`, partB$`2`)$p.value
+
+# Age
+temp = normalSubjectLoadings %>% left_join(age_gender) %>% select(1,2,age)
+uncorrectedP[1,5] = cor.test(temp$`Comp. 1`, temp$age, method="pearson")$p.value
+# uncorrectedP[2,5] = cor.test(temp$`2`, temp$age, method="pearson")$p.value
+
+correctedP = matrix(p.adjust(uncorrectedP, "BH"), nrow=1, ncol=5)
+correctedP
+```
+
+```{r check varExps}
+Xhat = reinflateTensor(modelTongue$T, modelTongue$Wj, modelTongue$Wk)
+X = processedTongue$data
+X[is.na(X)] = 0
+sum(Xhat^2) / sum(X^2) * 100
+
+Xhat = reinflateTensor(modelLowling$T, modelLowling$Wj, modelLowling$Wk)
+X = processedLowling$data
+X[is.na(X)] = 0
+sum(Xhat^2) / sum(X^2) * 100
+
+Xhat = reinflateTensor(modelLowinter$T, modelLowinter$Wj, modelLowinter$Wk)
+X = processedLowinter$data
+X[is.na(X)] = 0
+sum(Xhat^2) / sum(X^2) * 100
+
+Xhat = reinflateTensor(modelUpling$T, modelUpling$Wj, modelUpling$Wk)
+X = processedUpling$data
+X[is.na(X)] = 0
+sum(Xhat^2) / sum(X^2) * 100
+
+Xhat = reinflateTensor(modelUpinter$T, modelUpinter$Wj, modelUpinter$Wk)
+X = processedUpinter$data
+X[is.na(X)] = 0
+sum(Xhat^2) / sum(X^2) * 100
+
+Xhat = reinflateTensor(modelSaliva$T, modelSaliva$Wj, modelSaliva$Wk)
+X = processedSaliva$data
+X[is.na(X)] = 0
+sum(Xhat^2) / sum(X^2) * 100
+
+Xhat = reinflateTensor(modelMetabolomics$T, modelMetabolomics$Wj, modelMetabolomics$Wk)
+X = processedMetabolomics$data
+X[is.na(X)] = 0
+sum(Xhat^2) / sum(X^2) * 100
+```

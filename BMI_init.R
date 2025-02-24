@@ -47,15 +47,15 @@ taxonomy = taxonomy[featureMask,]
 
 # Filter based on sparsity
 threshold = 0.75
-
 sparsity = colSums(df==0) / nrow(df)
-
 featureSelection = sparsity <= threshold
-taxonomy_filtered = taxonomy[featureSelection,]
-df_filtered = df[,featureSelection]
 
 # CLR
-df_clr = t(apply(df_filtered+1, 1, function(x){log(x / compositions::geometricmean(x))})) %>% as_tibble()
+df_clr = t(apply(df+1, 1, function(x){log(x / compositions::geometricmean(x))})) %>% as_tibble()
+
+# Apply feature filter
+df_clr = df_clr[,featureSelection]
+taxonomy_filtered = taxonomy[featureSelection,]
 
 # Make into cube
 I = length(unique(sampleInfo$subject))
@@ -66,12 +66,22 @@ timepoints = sampleInfo %>% arrange(Days) %>% select(Days) %>% unique() %>% pull
 
 for(k in 1:K){
   Day = timepoints[k]
-  X[,,k] = cbind(df_clr, sampleInfo) %>% as_tibble() %>% mutate(subject=as.character(subject)) %>% filter(Days == Day) %>% select(c(colnames(df_clr),subject)) %>% right_join(subjectMeta) %>% arrange(subject) %>% select(-colnames(subjectMeta)) %>% as.matrix()
+  X[,,k] = cbind(df_clr, sampleInfo) %>%
+    as_tibble() %>%
+    mutate(subject=as.character(subject)) %>%
+    filter(Days == Day) %>%
+    select(c(colnames(df_clr),subject)) %>%
+    right_join(subjectMeta) %>%
+    arrange(subject) %>%
+    select(-colnames(subjectMeta)) %>%
+    as.matrix()
 }
 
 # Mask based on shared subjects for BMI and WHZ
-X_bmi = X[subjectMeta$subject %in% homogenized_subjectMeta_bmi$subject,,]
-X_whz = X[subjectMeta$subject %in% homogenized_subjectMeta_whz$subject,,]
+# X_bmi = X[subjectMeta$subject %in% homogenized_subjectMeta_bmi$subject,,]
+# X_whz = X[subjectMeta$subject %in% homogenized_subjectMeta_whz$subject,,]
+X_bmi = X
+X_whz = X
 
 # Center and scale
 X_bmi_cnt = parafac4microbiome::multiwayCenter(X_bmi, mode=1)
@@ -83,8 +93,9 @@ X_whz_cnt_scl = parafac4microbiome::multiwayScale(X_whz_cnt, mode=2)
 # Save
 faeces_df_bmi = X_bmi_cnt_scl
 faeces_df_whz = X_whz_cnt_scl
+faeces_subjectMeta = subjectMeta
 faeces_taxonomy = taxonomy_filtered
-faeces_timepoints = timepoints
+faeces_timepoints = matrix(NA, nrow=3, ncol=2) %>% as_tibble() %>% mutate(visit = 1:3, timepoint=timepoints) %>% select(-V1,-V2)
 
 # Milk microbiome
 df = read.csv("./Data/BMI/milkCounts.csv", header=FALSE, sep=" ") %>% as_tibble()
@@ -102,15 +113,15 @@ taxonomy = taxonomy[featureMask,]
 
 # Filter based on sparsity
 threshold = 0.85
-
 sparsity = colSums(df==0) / nrow(df)
-
 featureSelection = sparsity <= threshold
-taxonomy_filtered = taxonomy[featureSelection,]
-df_filtered = df[,featureSelection]
 
 # CLR
-df_clr = t(apply(df_filtered+1, 1, function(x){log(x / compositions::geometricmean(x))})) %>% as_tibble()
+df_clr = t(apply(df+1, 1, function(x){log(x / compositions::geometricmean(x))})) %>% as_tibble()
+
+# Apply feature filter
+df_clr = df_clr[,featureSelection]
+taxonomy_filtered = taxonomy[featureSelection,]
 
 # Make into cube
 I = length(unique(sampleInfo$subject))
@@ -125,8 +136,10 @@ for(k in 1:K){
 }
 
 # Mask based on shared subjects for BMI and WHZ
-X_bmi = X[subjectMeta$subject %in% homogenized_subjectMeta_bmi$subject,,]
-X_whz = X[subjectMeta$subject %in% homogenized_subjectMeta_whz$subject,,]
+# X_bmi = X[subjectMeta$subject %in% homogenized_subjectMeta_bmi$subject,,]
+# X_whz = X[subjectMeta$subject %in% homogenized_subjectMeta_whz$subject,,]
+X_bmi = X
+X_whz = X
 
 # Center and scale
 X_bmi_cnt = parafac4microbiome::multiwayCenter(X_bmi, mode=1)
@@ -137,8 +150,9 @@ X_whz_cnt_scl = parafac4microbiome::multiwayScale(X_whz_cnt, mode=2)
 
 milk_df_bmi = X_bmi_cnt_scl
 milk_df_whz = X_whz_cnt_scl
+milk_subjectMeta = subjectMeta
 milk_taxonomy = taxonomy_filtered
-milk_timepoints = timepoints
+milk_timepoints = matrix(NA, nrow=4, ncol=2) %>% as_tibble() %>% mutate(visit = 1:4, timepoint=timepoints) %>% select(-V1,-V2)
 
 # Milk metabolomics
 df = read.csv("./Data/BMI/milkMetabNumeric.csv", header=FALSE, sep=" ") %>% as_tibble()
@@ -171,8 +185,10 @@ for(k in 1:K){
 }
 
 # Mask based on shared subjects for BMI and WHZ
-X_bmi = X[subjectMeta$subject %in% homogenized_subjectMeta_bmi$subject,,]
-X_whz = X[subjectMeta$subject %in% homogenized_subjectMeta_whz$subject,,]
+# X_bmi = X[subjectMeta$subject %in% homogenized_subjectMeta_bmi$subject,,]
+# X_whz = X[subjectMeta$subject %in% homogenized_subjectMeta_whz$subject,,]
+X_bmi = X
+X_whz = X
 
 # Center and scale
 X_bmi_cnt = parafac4microbiome::multiwayCenter(X_bmi, mode=1)
@@ -183,8 +199,9 @@ X_whz_cnt_scl = parafac4microbiome::multiwayScale(X_whz_cnt, mode=2)
 
 milkMetab_df_bmi = X_bmi_cnt_scl
 milkMetab_df_whz = X_whz_cnt_scl
+milkMetab_subjectMeta = subjectMeta
 milkMetab_taxonomy = taxonomy
-milkMetab_timepoints = timepoints
+milkMetab_timepoints = matrix(NA, nrow=4, ncol=2) %>% as_tibble() %>% mutate(visit = 1:4, timepoint=timepoints) %>% select(-V1,-V2)
 
 # Fix milkMetab feature annotations
 df = milkMetab_taxonomy %>% mutate(Metabolite = make.names(X), CAS.Registry = make.names(CAS.Registry)) %>% left_join(metaboliteCategories)
@@ -203,10 +220,10 @@ df[70,"Metabolite"] = "tau.Methylhistidine" # Fix non-ascii tau character
 milkMetab_featureMeta = df %>% select(-X)
 
 # Save
-saveRDS(milkMetab_df_bmi, "./Data/BMI/milkMetab.RDS")
-saveRDS(milk_df_bmi, "./Data/BMI/milk.RDS")
-saveRDS(faeces_df_bmi, "./Data/BMI/faeces.RDS")
-saveRDS(homogenized_subjectMeta_bmi, "./Data/BMI/homogenized_subjectMeta.RDS")
-saveRDS(faeces_taxonomy, "./Data/BMI/faeces_taxonomy.RDS")
-saveRDS(milk_taxonomy, "./Data/BMI/milk_taxonomy.RDS")
-saveRDS(milkMetab_featureMeta, "./Data/BMI/milk_metabolites.RDS")
+faeces = list("data"=faeces_df_bmi, "mode1"=faeces_subjectMeta, "mode2"=faeces_taxonomy, "mode3"=faeces_timepoints)
+milk = list("data"=milk_df_bmi, "mode1"=milk_subjectMeta, "mode2"=milk_taxonomy, "mode3"=milk_timepoints)
+milkMetab = list("data"=milkMetab_df_bmi, "mode1"=milkMetab_subjectMeta, "mode2"=milkMetab_featureMeta, "mode3"=milkMetab_timepoints)
+
+saveRDS(milkMetab, "./Data/BMI/milkMetab.RDS")
+saveRDS(milk, "./Data/BMI/milk.RDS")
+saveRDS(faeces, "./Data/BMI/faeces.RDS")

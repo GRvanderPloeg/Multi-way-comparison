@@ -14,36 +14,36 @@ library(CMTFtoolbox)
 ```
 
 ```{r processing}
-milkMetab_df_bmi = readRDS("./Data/BMI/milkMetab.RDS")
-milk_df_bmi = readRDS("./Data/BMI/milk.RDS")
-faeces_df_bmi = readRDS("./Data/BMI/faeces.RDS")
-homogenized_subjectMeta_bmi = readRDS("./Data/BMI/homogenized_subjectMeta.RDS")
-faeces_taxonomy = readRDS("./Data/BMI/faeces_taxonomy.RDS")
-milk_taxonomy = readRDS("./Data/BMI/milk_taxonomy.RDS")
-milkMetab_featureMeta = readRDS("./Data/BMI/milk_metabolites.RDS")
-```
-
-```{r parafac of HM metabolomics}
-# result = parafac4microbiome::assessModelQuality(milkMetab_df_bmi, numRepetitions=10, numCores=parallel::detectCores())
-# result = parafac4microbiome::assessModelStability(milkMetab_df_bmi, numFolds=10, numCores=parallel::detectCores())
-# milkMetab_parafac = parafac4microbiome::parafac(milkMetab_df_bmi, nfac=1, nstart=100)
-# saveRDS(milkMetab_parafac, "./Models/PARAFAC/BMI_milkMetab.RDS")
-milkMetab_parafac = readRDS("./Models/PARAFAC/BMI_milkMetab.RDS")
-```
-
-```{r parafac of HM microbiome}
-# result = parafac4microbiome::assessModelQuality(milk_df_bmi, numRepetitions=10, numCores=parallel::detectCores())
-# milk_parafac = parafac4microbiome::parafac(milk_df_bmi, nfac=1, nstart=100)
-# saveRDS(milk_parafac, "./Models/PARAFAC/BMI_milk.RDS")
-milk_parafac = readRDS("./Models/PARAFAC/BMI_milk.RDS")
+milkMetab = readRDS("./Data/BMI/milkMetab.RDS")
+milk = readRDS("./Data/BMI/milk.RDS")
+faeces = readRDS("./Data/BMI/faeces.RDS")
 ```
 
 ```{r parafac of infant faecal microbiome}
-# result = parafac4microbiome::assessModelQuality(faeces_df_bmi, numRepetitions=10, numCores=parallel::detectCores())
-# result = parafac4microbiome::assessModelQuality(faeces_df_bmi, numRepetitions=10, numCores=parallel::detectCores())
-# faeces_parafac = parafac4microbiome::parafac(faeces_df_bmi, nfac=1, nstart=100)
-# saveRDS(faeces_parafac, "./Models/PARAFAC/BMI_faeces.RDS")
-faeces_parafac = readRDS("./Models/PARAFAC/BMI_faeces.RDS")
+# result = parafac4microbiome::assessModelQuality(faeces$data, numRepetitions=10, numCores=parallel::detectCores())
+# result$plots$overview
+# result2 = parafac4microbiome::assessModelStability(faeces, maxNumComponents=3, numFolds=10)
+# modelFaeces = parafac4microbiome::parafac(faeces$data, nfac=2, nstart=100)
+# saveRDS(modelFaeces, "./Models/PARAFAC/BMI_faeces.RDS")
+modelFaeces = readRDS("./Models/PARAFAC/BMI_faeces.RDS")
+```
+
+```{r parafac of HM microbiome}
+# result = parafac4microbiome::assessModelQuality(milk$data, numRepetitions=10, numCores=parallel::detectCores())
+# result$plots$overview
+# result2 = parafac4microbiome::assessModelStability(milk, maxNumComponents=3, numFolds=10)
+# modelMilk = parafac4microbiome::parafac(milk$data, nfac=3, nstart=100)
+# saveRDS(modelMilk, "./Models/PARAFAC/BMI_milk.RDS")
+modelMilk = readRDS("./Models/PARAFAC/BMI_milk.RDS")
+```
+
+```{r parafac of HM metabolomics}
+# result = parafac4microbiome::assessModelQuality(milkMetab$data, numRepetitions=10, numCores=parallel::detectCores())
+# result$plots$overview
+# result2 = parafac4microbiome::assessModelStability(milkMetab, maxNumComponents=3, numFolds=10)
+# modelMilkMetab = parafac4microbiome::parafac(milkMetab$data, nfac=3, nstart=100)
+# saveRDS(modelMilkMetab, "./Models/PARAFAC/BMI_milkMetab.RDS")
+modelMilkMetab = readRDS("./Models/PARAFAC/BMI_milkMetab.RDS")
 ```
 
 ```{r plot HM metabolomics model}
@@ -79,38 +79,38 @@ ggarrange(a,b,c,nrow=1,ncol=3)
 ```
 
 ```{r interpret loadings}
-testAssociationsPerComponent = function(model){
+testAssociationsPerComponent = function(model, metadata){
   numComponents = ncol(model$Fac[[1]])
   
   result = matrix(NA, nrow=numComponents, ncol=5)
   
   for(i in 1:numComponents){
-    result[i,1] = cor.test(model$Fac[[1]][,i], Jakobsen2025$subjectMeta_BMI$BMI, method="spearman")$p.value
-    result[i,2] = cor.test(model$Fac[[1]][,i], Jakobsen2025$subjectMeta_BMI$whz.6m, method="spearman")$p.value
+    result[i,1] = cor.test(model$Fac[[1]][,i], metadata$BMI, method="spearman")$p.value
+    result[i,2] = cor.test(model$Fac[[1]][,i], metadata$whz.6m, method="spearman")$p.value
     
-    mask = !is.na(Jakobsen2025$subjectMeta_BMI$C.section)
+    mask = !is.na(metadata$C.section)
     temp = model$Fac[[1]][mask,i]
-    tempMeta = Jakobsen2025$subjectMeta_BMI[mask,]
+    tempMeta = metadata[mask,]
     mask1 = tempMeta$C.section == 1
     mask2 = tempMeta$C.section == 2
     
     result[i,3] = wilcox.test(temp[mask1], temp[mask2])$p.value
     
-    mask1 = Jakobsen2025$subjectMeta_BMI$Secretor == 0
-    mask2 = Jakobsen2025$subjectMeta_BMI$Secretor == 1
+    mask1 = metadata$Secretor == 0
+    mask2 = metadata$Secretor == 1
     result[i,4] = wilcox.test(model$Fac[[1]][mask1,i], model$Fac[[1]][mask2,i])$p.value
     
-    mask1 = Jakobsen2025$subjectMeta_BMI$Lewis == 0
-    mask2 = Jakobsen2025$subjectMeta_BMI$Lewis == 1
+    mask1 = metadata$Lewis == 0
+    mask2 = metadata$Lewis == 1
     result[i,5] = wilcox.test(model$Fac[[1]][mask1,i], model$Fac[[1]][mask2,i])$p.value
   }
   
   return(result)
 }
 
-result1 = testAssociationsPerComponent(faeces_parafac)
-result2 = testAssociationsPerComponent(milk_parafac)
-result3 = testAssociationsPerComponent(milkMetab_parafac)
+result1 = testAssociationsPerComponent(modelFaeces, faeces$mode1 %>% left_join(Jakobsen2025$subjectMeta_BMI))
+result2 = testAssociationsPerComponent(modelMilk, milk$mode1 %>% left_join(Jakobsen2025$subjectMeta_BMI))
+result3 = testAssociationsPerComponent(modelMilkMetab, milkMetab$mode1 %>% left_join(Jakobsen2025$subjectMeta_BMI))
 
 df = rbind(result1, result2, result3)
 corrected_df = signif(matrix(p.adjust(df, "BH"), dim(df)), 2)
