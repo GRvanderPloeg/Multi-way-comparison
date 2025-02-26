@@ -11,6 +11,7 @@ library(ggpubr)
 library(ape)
 library(Polychrome)
 library(parafac4microbiome)
+library(NPLStoolbox)
 ```
 
 ```{r load datasets}
@@ -37,41 +38,38 @@ otherMeta = rbind(df1, df2, df3, df4) %>% as_tibble() %>% mutate(newTimepoint = 
 otherMeta = otherMeta[!otherMeta$pH < 1,] %>% as_tibble()
 ```
 ```{r NPLS tongue}
-Y = as.numeric(as.factor(processedTongue$mode1$GenderID))
+Y = as.numeric(as.factor(Cornejo2025$Tongue$mode1$GenderID))
 Ycnt = Y - mean(Y)
 
-X = processedTongue$data
-X[is.na(X)] = 0 # sNPLS cannot handle NAs - very stupid
-tongue_NPLS = sNPLS::sNPLS(X, as.matrix(Ycnt), 1, threshold_j=0, threshold_k=0, scale.X = FALSE, scale.Y=FALSE, center.X=FALSE, center.Y=FALSE)
+result = NPLStoolbox::ncrossreg(Cornejo2025$Tongue$data, Ycnt)
+tongue_NPLS = NPLStoolbox::triPLS1(Cornejo2025$Tongue$data, Ycnt, 1)
 
 saveRDS(tongue_NPLS, "./Models/NPLS/GOHTRANS_tongue_NPLS.RDS")
 ```
 
 ```{r NPLS saliva}
-Y = as.numeric(as.factor(processedSaliva$mode1$GenderID))
+Y = as.numeric(as.factor(Cornejo2025$Saliva$mode1$GenderID))
 Ycnt = Y - mean(Y)
 
-X = processedSaliva$data
-X[is.na(X)] = 0 # sNPLS cannot handle NAs - very stupid
-saliva_NPLS = sNPLS::sNPLS(X, as.matrix(Ycnt), 1, threshold_j=0, threshold_k=0, scale.X = FALSE, scale.Y=FALSE, center.X=FALSE, center.Y=FALSE)
+result = NPLStoolbox::ncrossreg(Cornejo2025$Saliva$data, Ycnt)
+saliva_NPLS = NPLStoolbox::triPLS1(Cornejo2025$Saliva$data, Ycnt, 1)
 
 saveRDS(saliva_NPLS, "./Models/NPLS/GOHTRANS_saliva_NPLS.RDS")
 ```
 
 ```{r NPLS tongue}
-Y = as.numeric(as.factor(processedCytokine$mode1$GenderID))
+Y = as.numeric(as.factor(Cornejo2025$Cytokines$mode1$GenderID))
 Ycnt = Y - mean(Y)
 
-X = processedCytokine$data
-X[is.na(X)] = 0 # sNPLS cannot handle NAs - very stupid
-cytokine_NPLS = sNPLS::sNPLS(X, as.matrix(Ycnt), 1, threshold_j=0, threshold_k=0, scale.X = FALSE, scale.Y=FALSE, center.X=FALSE, center.Y=FALSE)
+result = NPLStoolbox::ncrossreg(Cornejo2025$Cytokines$data, Ycnt)
+cytokine_NPLS = NPLStoolbox::triPLS1(Cornejo2025$Cytokines$data, Ycnt, 1)
 
 saveRDS(cytokine_NPLS, "./Models/NPLS/GOHTRANS_cytokine_NPLS.RDS")
 ```
 
 ```{r test metadata - tongue}
 timepoints = c(0, 3, 6, 12)
-Fac = list(tongue_NPLS$T, tongue_NPLS$Wj, tongue_NPLS$Wk)
+Fac = tongue_NPLS$Fac
 
 # Tongue
 normalSubjectLoadings = processedTongue$mode1 %>% as_tibble() %>% mutate(Component_1 = Fac[[1]][,1])
@@ -137,10 +135,13 @@ uncorrectedP[14] = cor.test(temp$V1, temp$pH)$p.value
 print(uncorrectedP)
 correctedP = p.adjust(uncorrectedP, "BH")
 print(correctedP)
+
+tongue_NPLS$varExpX
+tongue_NPLS$varExpY
 ```
 
 ```{r test metadata - saliva}
-Fac = list(saliva_NPLS$T, saliva_NPLS$Wj, saliva_NPLS$Wk)
+Fac = saliva_NPLS$Fac
 
 # Saliva
 normalSubjectLoadings = processedSaliva$mode1 %>% as_tibble() %>% mutate(Component_1 = Fac[[1]][,1])
@@ -220,10 +221,13 @@ uncorrectedP[1,14] = cor.test(temp$V1, temp$pH)$p.value
 print(uncorrectedP)
 correctedP = matrix(p.adjust(uncorrectedP, "BH"), nrow=1, ncol=14)
 print(correctedP)
+
+saliva_NPLS$varExpX
+saliva_NPLS$varExpY
 ```
 
 ```{r test metadata - cytokine}
-Fac = list(cytokine_NPLS$T, cytokine_NPLS$Wj, cytokine_NPLS$Wk)
+Fac = cytokine_NPLS$Fac
 
 # Cytokine
 timepoints = c(0, 3, 12)
@@ -319,4 +323,7 @@ uncorrectedP[1,14] = cor.test(temp$V1, temp$pH)$p.value
 print(uncorrectedP)
 correctedP = matrix(p.adjust(uncorrectedP, "BH"), nrow=1, ncol=14)
 print(correctedP)
+
+cytokine_NPLS$varExpX
+cytokine_NPLS$varExpY
 ```

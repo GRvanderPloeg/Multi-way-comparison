@@ -10,52 +10,43 @@ library(ggplot2)
 library(ggpubr)
 library(stringr)
 library(parafac4microbiome)
-library(CMTFtoolbox)
+library(NPLStoolbox)
 ```
 
-```{r processing}
-milkMetab_df_bmi = readRDS("./Data/BMI/milkMetab.RDS")
-milk_df_bmi = readRDS("./Data/BMI/milk.RDS")
-faeces_df_bmi = readRDS("./Data/BMI/faeces.RDS")
-homogenized_subjectMeta_bmi = readRDS("./Data/BMI/homogenized_subjectMeta.RDS")
-faeces_taxonomy = readRDS("./Data/BMI/faeces_taxonomy.RDS")
-milk_taxonomy = readRDS("./Data/BMI/milk_taxonomy.RDS")
-milkMetab_featureMeta = readRDS("./Data/BMI/milk_metabolites.RDS")
-```
-
-```{r prepare Y}
-Y = homogenized_subjectMeta_bmi$BMI
+```{r parafac of infant faecal microbiome}
+Y = NPLStoolbox::Jakobsen2025$faeces$mode1$BMI
 Ycnt = Y - mean(Y)
-```
 
-```{r NPLS HM metabolomics}
-# X = milkMetab_df_bmi
-# X[is.na(X)] = 0 # sNPLS cannot handle NAs - very stupid
-# milkMetab_NPLS = sNPLS::sNPLS(X, as.matrix(Ycnt), 1, threshold_j=0, threshold_k=0, scale.X = FALSE, scale.Y=FALSE, center.X=FALSE, center.Y=FALSE)
-# 
-# saveRDS(milkMetab_NPLS, "./Models/NPLS/BMI_milkMetab_NPLS.RDS")
-milkMetab_NPLS = readRDS("./Models/NPLS/BMI_milkMetab_NPLS.RDS")
+result = NPLStoolbox::ncrossreg(NPLStoolbox::Jakobsen2025$faeces$data, Ycnt)
+faeces_NPLS = NPLStoolbox::triPLS1(NPLStoolbox::Jakobsen2025$faeces$data, Ycnt, 1)
+saveRDS(faeces_NPLS, "./Models/NPLS/BMI_faeces_NPLS.RDS")
+
+faeces_NPLS = readRDS("./Models/NPLS/BMI_faeces_NPLS.RDS")
 ```
 
 ```{r parafac of HM microbiome}
-# X = milk_df_bmi
-# X[is.na(X)] = 0 # sNPLS cannot handle NAs - very stupid
-# milk_NPLS = sNPLS::sNPLS(X, as.matrix(Ycnt), 1, threshold_j=0, threshold_k=0, scale.X = FALSE, scale.Y=FALSE, center.X=FALSE, center.Y=FALSE)
-# 
-# saveRDS(milk_NPLS, "./Models/NPLS/BMI_milk_NPLS.RDS")
+Y = NPLStoolbox::Jakobsen2025$milkMicrobiome$mode1$BMI
+Ycnt = Y - mean(Y)
+
+result = NPLStoolbox::ncrossreg(NPLStoolbox::Jakobsen2025$milkMicrobiome$data, Ycnt)
+milk_NPLS = NPLStoolbox::triPLS1(NPLStoolbox::Jakobsen2025$milkMicrobiome$data, Ycnt, 1)
+saveRDS(milk_NPLS, "./Models/NPLS/BMI_milk_NPLS.RDS")
 
 milk_NPLS = readRDS("./Models/NPLS/BMI_milk_NPLS.RDS")
 ```
 
-```{r parafac of infant faecal microbiome}
-# X = faeces_df_bmi
-# X[is.na(X)] = 0 # sNPLS cannot handle NAs - very stupid
-# faeces_NPLS = sNPLS::sNPLS(X, as.matrix(Ycnt), 1, threshold_j=0, threshold_k=0, scale.X = FALSE, scale.Y=FALSE, center.X=FALSE, center.Y=FALSE)
-# 
-# saveRDS(faeces_NPLS, "./Models/NPLS/BMI_faeces_NPLS.RDS")
+```{r NPLS HM metabolomics}
+Y = NPLStoolbox::Jakobsen2025$milkMetabolomics$mode1$BMI
+Ycnt = Y - mean(Y, na.rm=TRUE)
 
-faeces_NPLS = readRDS("./Models/NPLS/BMI_faeces_NPLS.RDS")
+result = NPLStoolbox::ncrossreg(NPLStoolbox::Jakobsen2025$milkMetabolomics$data, Ycnt)
+milkMetab_NPLS = NPLStoolbox::triPLS1(NPLStoolbox::Jakobsen2025$milkMetabolomics$data, Ycnt, 1)
+saveRDS(milkMetab_NPLS, "./Models/NPLS/BMI_milkMetab_NPLS.RDS")
+
+milkMetab_NPLS = readRDS("./Models/NPLS/BMI_milkMetab_NPLS.RDS")
 ```
+
+
 
 ```{r plot HM metabolomics model}
 prepMode1 = homogenized_subjectMeta_bmi %>% mutate(Component_1 = milkMetab_NPLS$T) %>% arrange(BMI.group,subject) %>% mutate(index=1:nrow(.))
@@ -90,56 +81,41 @@ ggarrange(a,b,c,nrow=1,ncol=3)
 ```
 
 ```{r interpret loadings}
-testAssociationsPerComponent = function(model){
-  numComponents = ncol(model$T)
-  
+homogenized_subjectMeta = CMTFtoolbox::Jakobsen2025$subjectMeta_BMI
+
+testAssociationsPerComponent = function(model, metadata){
+  numComponents = ncol(model$Fac[[1]])
+  metadata = metadata %>% left_join(homogenized_subjectMeta)
   result = matrix(NA, nrow=numComponents, ncol=5)
   
   for(i in 1:numComponents){
-    result[i,1] = cor.test(model$T[,i], homogenized_subjectMeta_bmi$BMI, method="spearman")$p.value
-    result[i,2] = cor.test(model$T[,i], homogenized_subjectMeta_bmi$whz.6m, method="spearman")$p.value
+    result[i,1] = cor.test(model$Fac[[1]][,i], metadata$BMI, method="spearman")$p.value
+    result[i,2] = cor.test(model$Fac[[1]][,i], metadata$whz.6m, method="spearman")$p.value
     
-    mask = !is.na(homogenized_subjectMeta_bmi$C.section)
-    temp = model$T[mask,i]
-    tempMeta = homogenized_subjectMeta_bmi[mask,]
+    mask = !is.na(metadata$C.section)
+    temp = model$Fac[[1]][mask,i]
+    tempMeta = metadata[mask,]
     mask1 = tempMeta$C.section == 1
     mask2 = tempMeta$C.section == 2
     
     result[i,3] = wilcox.test(temp[mask1], temp[mask2])$p.value
     
-    mask1 = homogenized_subjectMeta_bmi$Secretor == 0
-    mask2 = homogenized_subjectMeta_bmi$Secretor == 1
-    result[i,4] = wilcox.test(model$T[mask1,i], model$T[mask2,i])$p.value
+    mask1 = metadata$Secretor == 0
+    mask2 = metadata$Secretor == 1
+    result[i,4] = wilcox.test(model$Fac[[1]][mask1,i], model$Fac[[1]][mask2,i])$p.value
     
-    mask1 = homogenized_subjectMeta_bmi$Lewis == 0
-    mask2 = homogenized_subjectMeta_bmi$Lewis == 1
-    result[i,5] = wilcox.test(model$T[mask1,i], model$T[mask2,i])$p.value
+    mask1 = metadata$Lewis == 0
+    mask2 = metadata$Lewis == 1
+    result[i,5] = wilcox.test(model$Fac[[1]][mask1,i], model$Fac[[1]][mask2,i])$p.value
   }
   
   return(result)
 }
 
-result1 = testAssociationsPerComponent(faeces_NPLS)
-result2 = testAssociationsPerComponent(milk_NPLS)
-result3 = testAssociationsPerComponent(milkMetab_NPLS)
+result1 = testAssociationsPerComponent(faeces_NPLS, Jakobsen2025$faeces$mode1)
+result2 = testAssociationsPerComponent(milk_NPLS, Jakobsen2025$milkMicrobiome$mode1)
+result3 = testAssociationsPerComponent(milkMetab_NPLS, Jakobsen2025$milkMetabolomics$mode1)
 
 df = rbind(result1, result2, result3)
 corrected_df = signif(matrix(p.adjust(df, "BH"), dim(df)), 2)
-```
-
-```{r check varExps}
-Xhat_faeces = reinflateTensor(faeces_NPLS$T, faeces_NPLS$Wj, faeces_NPLS$Wk)
-X_faeces = faeces_df_bmi
-X_faeces[is.na(X_faeces)] = 0
-sum(Xhat_faeces^2) / sum(X_faeces^2)
-
-Xhat_milk = reinflateTensor(milk_NPLS$T, milk_NPLS$Wj, milk_NPLS$Wk)
-X_milk = milk_df_bmi
-X_milk[is.na(X_milk)] = 0
-sum(Xhat_milk^2) / sum(X_milk^2)
-
-Xhat_milkMetab = reinflateTensor(milkMetab_NPLS$T, milkMetab_NPLS$Wj, milkMetab_NPLS$Wk)
-X_milkMetab = milkMetab_df_bmi
-X_milkMetab[is.na(X_milkMetab)] = 0
-sum(Xhat_milkMetab^2) / sum(X_milkMetab^2)
 ```
