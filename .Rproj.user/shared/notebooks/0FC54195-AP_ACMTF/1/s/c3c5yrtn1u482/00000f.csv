@@ -1,1 +1,0 @@
-"0","model = acmtf_opt(Z, 1, method=""L-BFGS"", nstart=100, numCores=parallel::detectCores())"
