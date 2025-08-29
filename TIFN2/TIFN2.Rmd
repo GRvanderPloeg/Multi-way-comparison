@@ -1779,10 +1779,6 @@ summary(lm(Area_delta_R30 ~ Component_1, data=df))
 
 ```
 
-```{r subject mode}
-
-```
-
 ```{r feature mode}
 # Pi = 0.8
 temp = list()
@@ -1796,19 +1792,24 @@ testFeatures(temp, processedLowling, 1, "Area_delta_R30") # flip
 b = plotFeatures(processedLowling$mode2, temp, 1, flip=TRUE) + scale_fill_manual(values=phylum_colors[-7])
 
 temp = list()
+temp$Fac = acmtfr_model80$Fac[c(1,6,7)]
+testFeatures(temp, processedLowinter, 1, "Area_delta_R30") # flip
+c = plotFeatures(processedLowinter$mode2, temp, 1, flip=TRUE) + scale_fill_manual(values=phylum_colors[-c(3,7)])
+
+temp = list()
 temp$Fac = acmtfr_model80$Fac[c(1,8,9)]
 testFeatures(temp, processedUpling, 1, "Area_delta_R30")
-c = plotFeatures(processedUpling$mode2, temp, 1, flip=FALSE) + scale_fill_manual(values=phylum_colors[-c(3,7)])
+d = plotFeatures(processedUpling$mode2, temp, 1, flip=FALSE) + scale_fill_manual(values=phylum_colors[-c(3,7)])
 
 temp = list()
 temp$Fac = acmtfr_model80$Fac[c(1,10,11)]
 testFeatures(temp, processedUpinter, 1, "Area_delta_R30") # flip
-d = plotFeatures(processedUpinter$mode2, temp, 1, flip=TRUE) + scale_fill_manual(values=phylum_colors[-c(3,7)])
+e = plotFeatures(processedUpinter$mode2, temp, 1, flip=TRUE) + scale_fill_manual(values=phylum_colors[-c(3,7)])
 
 temp = list()
 temp$Fac = acmtfr_model80$Fac[c(1,12,13)]
 testFeatures(temp, processedSaliva, 1, "Area_delta_R30") # flip
-e = plotFeatures(processedSaliva$mode2, temp, 1, flip=TRUE) + scale_fill_manual(values=phylum_colors[-c(3,7)])
+f = plotFeatures(processedSaliva$mode2, temp, 1, flip=TRUE) + scale_fill_manual(values=phylum_colors[-c(3,7)])
 
 # Metab
 temp = list()
@@ -1818,7 +1819,7 @@ testFeatures(temp, processedMetabolomics, 1, "Area_delta_R30") # no flip
 df = processedMetabolomics$mode2 %>% mutate(Component_2 = acmtfr_model80$Fac[[14]][,1]) %>% arrange(Component_2) %>% mutate(index=1:nrow(.))
 df = rbind(df %>% head(n=10), df %>% tail(n=10))
 
-f = df %>%
+g = df %>%
   ggplot(aes(x = Component_2, y = as.factor(index),
              fill = as.factor(Type),
              pattern = as.factor(Type))) +
@@ -1864,7 +1865,18 @@ b = processedLowling$mode3 %>%
   ylab("Loading") +
   ylim(0,1)
 
-c = processedUpling$mode3 %>%
+c = processedLowinter$mode3 %>%
+  mutate(Component_1 = acmtfr_model80$Fac[[7]][,1], day=c(-14,0,2,5,9,14,21)) %>%
+  ggplot(aes(x=day,y=Component_1)) +
+  annotate(geom = "rect", xmin = 0, xmax = 14, ymin = -Inf, ymax = Inf, fill = "red", colour = "black", alpha=0.25) +
+  geom_line() +
+  geom_point() +
+  theme(legend.position="none") +
+  xlab("Time point [days]") +
+  ylab("Loading") +
+  ylim(0,1)
+
+d = processedUpling$mode3 %>%
   mutate(Component_1 = -1*acmtfr_model80$Fac[[9]][,1], day=c(-14,0,2,5,9,14,21)) %>%
   ggplot(aes(x=day,y=Component_1)) +
   annotate(geom = "rect", xmin = 0, xmax = 14, ymin = -Inf, ymax = Inf, fill = "red", colour = "black", alpha=0.25) +
@@ -1875,7 +1887,7 @@ c = processedUpling$mode3 %>%
   ylab("Loading") +
   ylim(0,1)
 
-d = processedUpinter$mode3 %>%
+e = processedUpinter$mode3 %>%
   mutate(Component_1 = acmtfr_model80$Fac[[11]][,1], day=c(-14,0,2,5,9,14,21)) %>%
   ggplot(aes(x=day,y=Component_1)) +
   annotate(geom = "rect", xmin = 0, xmax = 14, ymin = -Inf, ymax = Inf, fill = "red", colour = "black", alpha=0.25) +
@@ -1886,7 +1898,7 @@ d = processedUpinter$mode3 %>%
   ylab("Loading") +
   ylim(0,1)
   
-e = processedSaliva$mode3 %>%
+f = processedSaliva$mode3 %>%
   mutate(Comp = acmtfr_model80$Fac[[13]][,1], day=c(-14,0,2,5,9,14,21)) %>%
   select(-visit,-status) %>%
   pivot_longer(-day) %>%
@@ -1899,7 +1911,7 @@ e = processedSaliva$mode3 %>%
   ylab("Loading") +
   ylim(0,1)
   
-f = processedMetabolomics$mode3 %>%
+g = processedMetabolomics$mode3 %>%
   mutate(Comp = acmtfr_model80$Fac[[15]][,1], day=c(0,2,5,9,14)) %>%
   select(-visit,-status) %>%
   pivot_longer(-day) %>%
@@ -1915,10 +1927,4 @@ f = processedMetabolomics$mode3 %>%
 
 
 ggarrange(a,b,c,d,e, nrow=3, ncol=2)
-```
-
-```{r plot the ACMTF-R component}
-# Subject mode
-
-# 
 ```
