@@ -1,0 +1,1924 @@
+---
+title: "TIFN2"
+output: html_document
+date: "2025-04-16"
+---
+
+```{r setup}
+library(tidyverse)
+library(ggplot2)
+library(ggpubr)
+library(stringr)
+library(parafac4microbiome)
+library(NPLStoolbox)
+library(CMTFtoolbox)
+library(vegan)
+library(scales)
+library(ggrepel)
+```
+
+# Import data
+
+```{r Import red fluorescence data}
+rf_data = read.csv("./RFdata.csv")
+colnames(rf_data) = c("subject", "id", "fotonr", "day", "group", "RFgroup", "MQH", "SPS(tm)", "Area_delta_R30", "Area_delta_Rmax", "Area_delta_R30_x_Rmax", "gingiva_mean_R_over_G", "gingiva_mean_R_over_G_upper_jaw", "gingiva_mean_R_over_G_lower_jaw")
+rf_data = rf_data %>% as_tibble()
+
+rf_data[rf_data$subject == "VSTPHZ", 1] = "VSTPH2"
+rf_data[rf_data$subject == "D2VZH0", 1] = "DZVZH0"
+rf_data[rf_data$subject == "DLODNN", 1] = "DLODDN"
+rf_data[rf_data$subject == "O3VQFX", 1] = "O3VQFQ"
+rf_data[rf_data$subject == "F80LGT", 1] = "F80LGF"
+rf_data[rf_data$subject == "26QQR0", 1] = "26QQrO"
+
+rf_data2 = read.csv("./red_fluorescence_data.csv") %>% as_tibble()
+rf_data2 = rf_data2[,c(2,4,181:192)]
+rf_data = rf_data %>% left_join(rf_data2)
+
+rf = rf_data %>% select(subject, RFgroup) %>% unique()
+```
+
+```{r Import subject metadata}
+age_gender = read.csv("./Ploeg_subjectMetadata.csv", sep=";")
+age_gender = age_gender[2:nrow(age_gender),2:ncol(age_gender)]
+age_gender = age_gender %>% as_tibble() %>% filter(onderzoeksgroep == 0) %>% select(naam, leeftijd, geslacht)
+colnames(age_gender) = c("subject", "age", "gender")
+
+# Correction for incorrect subject ids
+age_gender[age_gender$subject == "VSTPHZ", 1] = "VSTPH2"
+age_gender[age_gender$subject == "D2VZH0", 1] = "DZVZH0"
+age_gender[age_gender$subject == "DLODNN", 1] = "DLODDN"
+age_gender[age_gender$subject == "O3VQFX", 1] = "O3VQFQ"
+age_gender[age_gender$subject == "F80LGT", 1] = "F80LGF"
+age_gender[age_gender$subject == "26QQR0", 1] = "26QQrO"
+
+age_gender = age_gender %>% arrange(subject)
+```
+
+# Functions
+
+```{r metadata testing}
+
+mapping = c(-14,0,2,5,9,14,21)
+
+testMetadata = function(model, obj, componentNum){
+  
+  normalSubjectLoadings = cbind(model$Fac[[1]][,componentNum], obj$mode1) %>% as_tibble()
+  colnames(normalSubjectLoadings) = c("Loading", "subject", "RFgroup")
+  
+  transformedSubjectLoadings = transformPARAFACloadings(model$Fac, 2, moreOutput=TRUE)$Ftilde[,componentNum] %>% as_tibble() %>% mutate(subject = rep(obj$mode1$subject, each=nrow(obj$mode3)), day = rep(mapping[obj$mode3$visit],nrow(obj$mode1)))
+  colnames(transformedSubjectLoadings) = c("Loading", "subject", "day")
+  
+  uncorrectedP = rep(0, 5)
+  
+  # Plaque%
+  temp=transformedSubjectLoadings %>% left_join(rf_data %>% select(subject, day, plaquepercent),by=c("subject","day"))
+  uncorrectedP[1] = cor.test(temp$Loading, temp$plaquepercent, method="pearson")$p.value
+  
+  # Bleeding%
+  temp=transformedSubjectLoadings %>% left_join(rf_data %>% select(subject, day, bomppercent), by=c("subject","day"))
+  uncorrectedP[2] = cor.test(temp$Loading, temp$bomppercent, method="pearson")$p.value
+  
+  # RF%
+  temp=transformedSubjectLoadings %>% left_join(rf_data %>% select(subject, day, Area_delta_R30), by=c("subject","day"))
+  uncorrectedP[3] = cor.test(temp$Loading, temp$Area_delta_R30, method="pearson")$p.value
+  
+  # Gender
+  partA = normalSubjectLoadings %>% left_join(age_gender, by="subject") %>% select(1,2,gender) %>% filter(gender==1)
+  partB = normalSubjectLoadings %>% left_join(age_gender, by="subject") %>% select(1,2,gender) %>% filter(gender==2)
+  
+  uncorrectedP[4] = wilcox.test(partA$Loading, partB$Loading)$p.value # Not what I would do nowadays, but this is what is in the TIFN paper
+  
+  # Age
+  temp = normalSubjectLoadings %>% left_join(age_gender, by="subject") %>% select(1,2,age)
+  uncorrectedP[5] = cor.test(temp$Loading, temp$age, method="pearson")$p.value
+  
+  return(uncorrectedP)
+}
+
+testMetadata2 = function(model, mode1metadata){
+  transformedSubjectLoadings = transformPARAFACloadings(model$Fac, 1)
+  
+  metadata = mode1metadata %>% left_join(age_gender,by="subject") %>% left_join(rf_data %>% select(subject,day,Area_delta_R30,plaquepercent,bomppercent) %>% filter(day==14), by="subject")
+  
+  result = adonis2(transformedSubjectLoadings ~ plaquepercent + bomppercent + Area_delta_R30 + gender + age, data=metadata, method="euclidean", by="margin", permutations=9999, na.action=na.omit)
+  
+  return(result)
+}
+
+testFeatures = function(model, metadata, componentNum, metadataVar){
+  df = metadata$mode1 %>% left_join(rf_data %>% filter(day==14)) %>% left_join(age_gender)
+  topIndices = metadata$mode2 %>% mutate(index=1:nrow(.), Comp = model$Fac[[2]][,componentNum]) %>% arrange(desc(Comp)) %>% head() %>% select(index) %>% pull()
+  bottomIndices = metadata$mode2 %>% mutate(index=1:nrow(.), Comp = model$Fac[[2]][,componentNum]) %>% arrange(desc(Comp)) %>% tail() %>% select(index) %>% pull()
+  
+  timepoint = which(abs(model$Fac[[3]][,componentNum]) == max(abs(model$Fac[[3]][,componentNum])))
+  
+  Xhat = parafac4microbiome::reinflateTensor(model$Fac[[1]][,componentNum], model$Fac[[2]][,componentNum], model$Fac[[3]][,componentNum])
+  y = df[metadataVar]
+  
+  print("Positive loadings:")
+  print(cor(Xhat[,topIndices[1],timepoint], y))
+  print("Negative loadings:")
+  print(cor(Xhat[,bottomIndices[1],timepoint], y))
+}
+
+plotFeatures = function(mode2, model, componentNum, flip=FALSE){
+  
+  if(flip==TRUE){
+    df = mode2 %>% mutate(Comp = -1*model$Fac[[2]][,componentNum]) %>% arrange(Comp) %>% filter(Species != "") %>% mutate(index=1:nrow(.), name = paste(Genus, Species))
+  } else{
+    df = mode2 %>% mutate(Comp = model$Fac[[2]][,componentNum]) %>% arrange(Comp) %>% filter(Species != "") %>% mutate(index=1:nrow(.), name = paste(Genus, Species))
+  }
+  df = rbind(df %>% head(n=10), df %>% tail(n=10))
+  
+  plot=df %>%
+    ggplot(aes(x=Comp,y=as.factor(index),fill=as.factor(Phylum))) +
+    geom_bar(stat="identity", col="black") +
+    scale_y_discrete(label=df$name) +
+    xlab("Loading") +
+    ylab("") +
+    guides(fill=guide_legend(title="Phylum")) +
+    theme(text=element_text(size=16))
+  
+  return(plot)
+}
+```
+
+```{r define colours}
+phylum_colors = hue_pal()(7)
+```
+
+# Processing
+
+```{r processing}
+processedTongue = processDataCube(parafac4microbiome::vanderPloeg2024$tongue, sparsityThreshold=0.50, considerGroups=TRUE, groupVariable="RFgroup", CLR=TRUE, centerMode=1, scaleMode=2)
+processedLowling = processDataCube(parafac4microbiome::vanderPloeg2024$lower_jaw_lingual, sparsityThreshold=0.50, considerGroups=TRUE, groupVariable="RFgroup", CLR=TRUE, centerMode=1, scaleMode=2)
+processedLowinter = processDataCube(parafac4microbiome::vanderPloeg2024$lower_jaw_interproximal, sparsityThreshold=0.50, considerGroups=TRUE, groupVariable="RFgroup", CLR=TRUE, centerMode=1, scaleMode=2)
+processedUpling = processDataCube(parafac4microbiome::vanderPloeg2024$upper_jaw_lingual, sparsityThreshold=0.50, considerGroups=TRUE, groupVariable="RFgroup", CLR=TRUE, centerMode=1, scaleMode=2)
+processedUpinter = processDataCube(parafac4microbiome::vanderPloeg2024$upper_jaw_interproximal, sparsityThreshold=0.50, considerGroups=TRUE, groupVariable="RFgroup", CLR=TRUE, centerMode=1, scaleMode=2)
+processedSaliva = processDataCube(parafac4microbiome::vanderPloeg2024$saliva, sparsityThreshold=0.50, considerGroups=TRUE, groupVariable="RFgroup", CLR=TRUE, centerMode=1, scaleMode=2)
+processedMetabolomics = parafac4microbiome::vanderPloeg2024$metabolomics
+```
+
+# CP
+
+```{r cp assess num components}
+# assessment_tongue = parafac4microbiome::assessModelQuality(processedTongue$data, numRepetitions=10, numCores=10)
+# assessment_tongue$plots$overview
+# 
+# assessment_lowling = parafac4microbiome::assessModelQuality(processedLowling$data, numRepetitions=10, numCores=10)
+# assessment_lowling$plots$overview
+# 
+# assessment_lowinter = parafac4microbiome::assessModelQuality(processedLowinter$data, numRepetitions=10, numCores=10)
+# assessment_lowinter$plots$overview
+# 
+# assessment_upling = parafac4microbiome::assessModelQuality(processedUpling$data, numRepetitions=10, numCores=10)
+# assessment_upling$plots$overview
+# 
+# assessment_upinter = parafac4microbiome::assessModelQuality(processedUpinter$data, numRepetitions=10, numCores=10)
+# assessment_upinter$plots$overview
+# 
+# assessment_saliva = parafac4microbiome::assessModelQuality(processedSaliva$data, numRepetitions=10, numCores=10)
+# assessment_saliva$plots$overview
+# 
+# assessment_metab = parafac4microbiome::assessModelQuality(processedMetabolomics$data, numRepetitions=10, numCores=10)
+# assessment_metab$plots$overview
+# 
+# saveRDS(assessment_tongue, "./CP_assessment_tongue.RDS")
+# saveRDS(assessment_lowling, "./CP_assessment_lowling.RDS")
+# saveRDS(assessment_lowinter, "./CP_assessment_lowinter.RDS")
+# saveRDS(assessment_upling, "./CP_assessment_upling.RDS")
+# saveRDS(assessment_upinter, "./CP_assessment_upinter.RDS")
+# saveRDS(assessment_saliva, "./CP_assessment_saliva.RDS")
+# saveRDS(assessment_metab, "./CP_assessment_metab.RDS")
+
+assessment_tongue = readRDS("./CP_assessment_tongue.RDS")
+assessment_lowling = readRDS("./CP_assessment_lowling.RDS")
+assessment_lowinter = readRDS("./CP_assessment_lowinter.RDS")
+assessment_upling = readRDS("./CP_assessment_upling.RDS")
+assessment_upinter = readRDS("./CP_assessment_upinter.RDS")
+assessment_saliva = readRDS("./CP_assessment_saliva.RDS")
+assessment_metab = readRDS("./CP_assessment_metab.RDS")
+
+a = assessment_tongue$metrics$CORCONDIA %>% as_tibble() %>% mutate(index=1:nrow(.)) %>% pivot_longer(-index) %>% ggplot(aes(x=as.factor(name),y=value)) + geom_boxplot() + xlab("Number of components") + ylab("CORCONDIA") + theme(text=element_text(size=16))
+b = assessment_lowling$metrics$CORCONDIA %>% as_tibble() %>% mutate(index=1:nrow(.)) %>% pivot_longer(-index) %>% ggplot(aes(x=as.factor(name),y=value)) + geom_boxplot() + xlab("Number of components") + ylab("CORCONDIA") + theme(text=element_text(size=16))
+c = assessment_lowinter$metrics$CORCONDIA %>% as_tibble() %>% mutate(index=1:nrow(.)) %>% pivot_longer(-index) %>% ggplot(aes(x=as.factor(name),y=value)) + geom_boxplot() + xlab("Number of components") + ylab("CORCONDIA") + theme(text=element_text(size=16))
+d = assessment_upling$metrics$CORCONDIA %>% as_tibble() %>% mutate(index=1:nrow(.)) %>% pivot_longer(-index) %>% ggplot(aes(x=as.factor(name),y=value)) + geom_boxplot() + xlab("Number of components") + ylab("CORCONDIA") + theme(text=element_text(size=16))
+e = assessment_upinter$metrics$CORCONDIA %>% as_tibble() %>% mutate(index=1:nrow(.)) %>% pivot_longer(-index) %>% ggplot(aes(x=as.factor(name),y=value)) + geom_boxplot() + xlab("Number of components") + ylab("CORCONDIA") + theme(text=element_text(size=16))
+f = assessment_saliva$metrics$CORCONDIA %>% as_tibble() %>% mutate(index=1:nrow(.)) %>% pivot_longer(-index) %>% ggplot(aes(x=as.factor(name),y=value)) + geom_boxplot() + xlab("Number of components") + ylab("CORCONDIA") + theme(text=element_text(size=16))
+g = assessment_metab$metrics$CORCONDIA %>% as_tibble() %>% mutate(index=1:nrow(.)) %>% pivot_longer(-index) %>% ggplot(aes(x=as.factor(name),y=value)) + geom_boxplot() + xlab("Number of components") + ylab("CORCONDIA") + theme(text=element_text(size=16))
+ggarrange(a,b,c,d,e,f,g, nrow=4, ncol=2)
+```
+
+```{r cp stability num components}
+# colourCols = c("", "", "")
+# legendTitles = c("RF group", "Phylum", "")
+# xLabels = c("Subject index", "Feature index", "Time index")
+# legendColNums = c(3,5,0)
+# arrangeModes = c(TRUE, TRUE, FALSE)
+# continuousModes = c(FALSE,FALSE,TRUE)
+# 
+# stability_tongue = parafac4microbiome::assessModelStability(processedTongue, maxNumComponents=3, numFolds=10, colourCols=colourCols, legendTitles=legendTitles, xLabels = xLabels, legendColNums=legendColNums, arrangeModes=arrangeModes, numCores=parallel::detectCores())
+# stability_tongue$modelPlots[[2]]
+# stability_tongue$modelPlots[[3]]
+# 
+# stability_lowling = parafac4microbiome::assessModelStability(processedLowling, maxNumComponents=2, numFolds=10, colourCols=colourCols, legendTitles=legendTitles, xLabels = xLabels, legendColNums=legendColNums, arrangeModes=arrangeModes, numCores=parallel::detectCores())
+# stability_lowling$modelPlots[[1]]
+# stability_lowling$modelPlots[[2]]
+# 
+# stability_lowinter = parafac4microbiome::assessModelStability(processedLowinter, maxNumComponents=3, numFolds=10, colourCols=colourCols, legendTitles=legendTitles, xLabels = xLabels, legendColNums=legendColNums, arrangeModes=arrangeModes, numCores=parallel::detectCores())
+# stability_lowinter$modelPlots[[2]]
+# stability_lowinter$modelPlots[[3]]
+# 
+# stability_upling = parafac4microbiome::assessModelStability(processedUpling, maxNumComponents=3, numFolds=10, colourCols=colourCols, legendTitles=legendTitles, xLabels = xLabels, legendColNums=legendColNums, arrangeModes=arrangeModes, numCores=parallel::detectCores())
+# stability_upling$modelPlots[[2]]
+# stability_upling$modelPlots[[3]]
+# 
+# stability_upinter = parafac4microbiome::assessModelStability(processedUpinter, maxNumComponents=3, numFolds=10, colourCols=colourCols, legendTitles=legendTitles, xLabels = xLabels, legendColNums=legendColNums, arrangeModes=arrangeModes, numCores=parallel::detectCores())
+# stability_upinter$modelPlots[[2]]
+# stability_upinter$modelPlots[[3]]
+# 
+# stability_saliva = parafac4microbiome::assessModelStability(processedSaliva, maxNumComponents=3, numFolds=10, colourCols=colourCols, legendTitles=legendTitles, xLabels = xLabels, legendColNums=legendColNums, arrangeModes=arrangeModes, numCores=parallel::detectCores())
+# stability_saliva$modelPlots[[2]]
+# stability_saliva$modelPlots[[3]]
+# 
+# stability_metab = parafac4microbiome::assessModelStability(processedMetabolomics, maxNumComponents=2, numFolds=10, colourCols=colourCols, legendTitles=legendTitles, xLabels = xLabels, legendColNums=legendColNums, arrangeModes=arrangeModes, numCores=parallel::detectCores())
+# stability_metab$modelPlots[[1]]
+# stability_metab$modelPlots[[2]]
+```
+
+```{r make cp models}
+# cp_tongue = parafac4microbiome::parafac(processedTongue$data, nfac=2, nstart=100)
+# cp_lowling = parafac4microbiome::parafac(processedLowling$data, nfac=1, nstart=100)
+# cp_lowinter = parafac4microbiome::parafac(processedLowinter$data, nfac=2, nstart=100)
+# cp_upling = parafac4microbiome::parafac(processedUpling$data, nfac=2, nstart=100)
+# cp_upinter = parafac4microbiome::parafac(processedUpinter$data, nfac=2, nstart=100)
+# cp_saliva = parafac4microbiome::parafac(processedSaliva$data, nfac=2, nstart=100)
+# cp_metabolomics = parafac4microbiome::parafac(processedMetabolomics$data, nfac=1, nstart=100)
+
+# saveRDS(cp_tongue, "./cp_tongue.RDS")
+# saveRDS(cp_lowling, "./cp_lowling.RDS")
+# saveRDS(cp_lowinter, "./cp_lowinter.RDS")
+# saveRDS(cp_upling, "./cp_upling.RDS")
+# saveRDS(cp_upinter, "./cp_upinter.RDS")
+# saveRDS(cp_saliva, "./cp_saliva.RDS")
+# saveRDS(cp_metabolomics, "./cp_metabolomics.RDS")
+
+cp_tongue = readRDS("./cp_tongue.RDS")
+cp_lowling = readRDS("./cp_lowling.RDS")
+cp_lowinter = readRDS("./cp_lowinter.RDS")
+cp_upling = readRDS("./cp_upling.RDS")
+cp_upinter = readRDS("./cp_upinter.RDS")
+cp_saliva = readRDS("./cp_saliva.RDS")
+cp_metabolomics = readRDS("./cp_metabolomics.RDS")
+```
+
+```{r cp permanova test}
+testMetadata2(cp_tongue, processedTongue$mode1)
+testMetadata2(cp_lowling, processedLowling$mode1)
+testMetadata2(cp_lowinter, processedLowinter$mode1)
+testMetadata2(cp_upling, processedUpling$mode1)
+testMetadata2(cp_upinter, processedUpinter$mode1)
+testMetadata2(cp_saliva, processedSaliva$mode1)
+testMetadata2(cp_metabolomics, processedMetabolomics$mode1)
+
+uncorrectedP = matrix(c(0.0199, 0.4910, 0.3666, 0.7259, 0.0041, 0.1074, 0.0996, 0.0024, 0.0628, 0.5087, 0.4419, 0.0294, 0.1129, 0.2653, 0.3293, 0.4960, 0.3263, 0.0523, 0.2071, 0.9751, 0.3999, 0.0781, 0.1128, 0.0525, 0.3013, 0.1458, 0.3255, 0.1315, 0.1465, 0.0070, 0.1611, 0.3388, 0.3018, 0.5043, 0.1241), nrow=5, ncol=7)
+
+apply(uncorrectedP, 2, FUN=function(x){p.adjust(x,"BH")}) # BH per dataset
+```
+
+```{r cp test metadata}
+uncorrectedP = matrix(0L, nrow=12, ncol=5)
+uncorrectedP[1,] = testMetadata(cp_tongue, processedTongue, 1)
+uncorrectedP[2,] = testMetadata(cp_tongue, processedTongue, 2)
+uncorrectedP[3,] = testMetadata(cp_lowling, processedLowling, 1)
+uncorrectedP[4,] = testMetadata(cp_lowinter, processedLowinter, 1)
+uncorrectedP[5,] = testMetadata(cp_lowinter, processedLowinter, 2)
+uncorrectedP[6,] = testMetadata(cp_upling, processedUpling, 1)
+uncorrectedP[7,] = testMetadata(cp_upling, processedUpling, 2)
+uncorrectedP[8,] = testMetadata(cp_upinter, processedUpinter, 1)
+uncorrectedP[9,] = testMetadata(cp_upinter, processedUpinter, 2)
+uncorrectedP[10,] = testMetadata(cp_saliva, processedSaliva, 1)
+uncorrectedP[11,] = testMetadata(cp_saliva, processedSaliva, 2)
+uncorrectedP[12,] = testMetadata(cp_metabolomics, processedMetabolomics, 1)
+
+correctedP = matrix(p.adjust(uncorrectedP, "BH"), nrow=12, ncol=5)
+correctedP
+
+df = processedTongue$mode1 %>% left_join(rf_data %>% filter(day==14)) %>% left_join(age_gender) %>% mutate(Component_1 = cp_tongue$Fac[[1]][,1], Component_2 = cp_tongue$Fac[[1]][,2])
+summary(lm(plaquepercent ~ Component_1 + Component_2, data=df))
+summary(lm(age ~ Component_1 + Component_2, data=df))
+
+df = processedLowling$mode1 %>% left_join(rf_data %>% filter(day==14)) %>% left_join(age_gender) %>% mutate(Component_1 = cp_lowling$Fac[[1]][,1])
+summary(lm(Area_delta_R30 ~ Component_1, data=df))
+
+df = processedSaliva$mode1 %>% left_join(rf_data %>% filter(day==14)) %>% left_join(age_gender) %>% mutate(Component_1 = cp_saliva$Fac[[1]][,1], Component_2 = cp_saliva$Fac[[1]][,2])
+summary(lm(age ~ Component_1 + Component_2, data=df))
+```
+
+```{r plot models}
+colourCols = c("RFgroup", "Phylum", "")
+legendTitles = c("RF group", "Phylum", "")
+xLabels = c("Subject index", "Feature index", "Time index")
+legendColNums = c(3,5,0)
+arrangeModes = c(TRUE, TRUE, FALSE)
+continuousModes = c(FALSE,FALSE,TRUE)
+
+parafac4microbiome::plotPARAFACmodel(cp_tongue$Fac, processedTongue, 2, colourCols, legendTitles, xLabels, legendColNums, arrangeModes, continuousModes,
+  overallTitle = "Tongue")
+parafac4microbiome::plotPARAFACmodel(cp_lowling$Fac, processedLowling, 1, colourCols, legendTitles, xLabels, legendColNums, arrangeModes, continuousModes,
+  overallTitle = "Lowling")
+parafac4microbiome::plotPARAFACmodel(cp_lowinter$Fac, processedLowinter, 2, colourCols, legendTitles, xLabels, legendColNums, arrangeModes, continuousModes,
+  overallTitle = "Lowinter")
+parafac4microbiome::plotPARAFACmodel(cp_upling$Fac, processedUpling, 2, colourCols, legendTitles, xLabels, legendColNums, arrangeModes, continuousModes,
+  overallTitle = "Upling")
+parafac4microbiome::plotPARAFACmodel(cp_upinter$Fac, processedUpinter, 2, colourCols, legendTitles, xLabels, legendColNums, arrangeModes, continuousModes,
+  overallTitle = "Upinter")
+parafac4microbiome::plotPARAFACmodel(cp_saliva$Fac, processedSaliva, 2, colourCols, legendTitles, xLabels, legendColNums, arrangeModes, continuousModes,
+  overallTitle = "Saliva")
+parafac4microbiome::plotPARAFACmodel(cp_metabolomics$Fac, processedMetabolomics, 1, colourCols, legendTitles, xLabels, legendColNums, arrangeModes, continuousModes,
+  overallTitle = "Metabolomics")
+```
+
+```{r cp subject mode plot}
+comparisons = list(c("0","1"),c("0","2"),c("1","2"))
+
+cbind(cp_tongue$Fac[[1]], processedTongue$mode1) %>% as_tibble() %>% ggplot(aes(x=as.factor(RFgroup),y=`1`,fill=as.factor(RFgroup))) + geom_boxplot() + geom_point() + stat_compare_means(comparisons=comparisons) + theme(legend.position="none")
+cbind(cp_tongue$Fac[[1]], processedTongue$mode1) %>% as_tibble() %>% ggplot(aes(x=as.factor(RFgroup),y=`2`,fill=as.factor(RFgroup))) + geom_boxplot() + geom_point() + stat_compare_means(comparisons=comparisons) + theme(legend.position="none")
+```
+
+```{r feature mode plot}
+# Briefly check how the signs work
+
+# Tongue
+testFeatures(cp_tongue, processedTongue, 1, "age") # flip
+
+df = processedTongue$mode2 %>% mutate(Component_1 = -1*cp_tongue$Fac[[2]][,1]) %>% arrange(Component_1) %>% filter(Species != "") %>% mutate(index=1:nrow(.), name = paste(Genus, Species)) %>% filter(index %in% c(1:10, 29:38))
+a=df %>%
+  ggplot(aes(x=Component_1,y=as.factor(index),fill=as.factor(Phylum))) +
+  geom_bar(stat="identity", col="black") +
+  scale_y_discrete(label=df$name) +
+  xlab("Loading") +
+  ylab("") +
+  guides(fill=guide_legend(title="Phylum")) +
+  theme(text=element_text(size=16)) +
+  scale_fill_manual(values=phylum_colors[-c(3,7)])
+
+# ignore comp 2
+
+# Lowling
+testFeatures(cp_lowling, processedLowling, 1, "Area_delta_R30") # flip
+
+df = processedLowling$mode2 %>% mutate(Component_1 = -1*cp_lowling$Fac[[2]][,1]) %>% arrange(Component_1) %>% filter(Species != "") %>% mutate(index=1:nrow(.), name = paste(Genus, Species)) %>% filter(index %in% c(1:10, 49:58))
+b=df %>%
+  ggplot(aes(x=Component_1,y=as.factor(index),fill=as.factor(Phylum))) +
+  geom_bar(stat="identity", col="black") +
+  scale_y_discrete(label=df$name) +
+  xlab("Loading") +
+  ylab("") +
+  guides(fill=guide_legend(title="Phylum")) +
+  theme(text=element_text(size=16)) +
+  scale_fill_manual(values=phylum_colors[-7])
+
+# Saliva
+# ignore comp 1
+testFeatures(cp_saliva, processedSaliva, 1, "age")
+
+df = processedSaliva$mode2 %>% mutate(Component_2 = cp_saliva$Fac[[2]][,1]) %>% arrange(Component_2) %>% filter(Species != "") %>% mutate(index=1:nrow(.), name = paste(Genus, Species)) %>% filter(index %in% c(1:10, 53:62))
+c=df %>%
+  ggplot(aes(x=Component_2,y=as.factor(index),fill=as.factor(Phylum))) +
+  geom_bar(stat="identity", col="black") +
+  scale_y_discrete(label=df$name) +
+  xlab("Loading") +
+  ylab("") +
+  guides(fill=guide_legend(title="Phylum")) +
+  theme(text=element_text(size=16)) +
+  scale_fill_manual(values=phylum_colors[-c(3,7)])
+
+
+ggarrange(a,b,c, common.legend=TRUE, ncol=1)
+```
+
+```{r time mode plot}
+a = processedTongue$mode3 %>%
+  mutate(Component_1 = -cp_tongue$Fac[[3]][,1]) %>%
+  ggplot(aes(x=c(-14,0,2,5,9,14,21),y=Component_1)) +
+  geom_rect(aes(fill="red"),xmin=0, xmax=14, ymin=-Inf, ymax=Inf, alpha=0.25) +
+  geom_line() +
+  geom_point() +
+  theme(legend.position="none") +
+  xlab("Time point [days]") +
+  ylab("Loading") +
+  ylim(0,1)
+
+b = processedLowling$mode3 %>%
+  mutate(Component_1 = cp_lowling$Fac[[3]][,1]) %>%
+  ggplot(aes(x=c(-14,0,2,5,9,14,21),y=Component_1)) +
+  geom_rect(aes(fill="red"),xmin=0, xmax=14, ymin=-Inf, ymax=Inf, alpha=0.25) +
+  geom_line() +
+  geom_point() +
+  theme(legend.position="none") +
+  xlab("Time point [days]") +
+  ylab("Loading") +
+  ylim(0,1)
+
+c = processedSaliva$mode3 %>%
+  mutate(Component_2 = -cp_saliva$Fac[[3]][,2]) %>%
+  ggplot(aes(x=c(-14,0,2,5,9,14,21),y=Component_2)) +
+  geom_rect(aes(fill="red"),xmin=0, xmax=14, ymin=-Inf, ymax=Inf, alpha=0.25) +
+  geom_line() +
+  geom_point() +
+  theme(legend.position="none") +
+  xlab("Time point [days]") +
+  ylab("Loading") +
+  ylim(0,1)
+
+ggarrange(a,b,c, nrow=1)
+```
+
+```{r plot cp tongue comp 1}
+testFeatures(cp_tongue, processedTongue, 1, "plaquepercent") # no flip
+testFeatures(cp_tongue, processedTongue, 1, "age") # flip
+
+a = processedTongue$mode1 %>%
+  mutate(Component_1 = cp_tongue$Fac[[1]][,1]) %>%
+  left_join(rf_data %>% select(subject,day,Area_delta_R30,plaquepercent,bomppercent) %>% filter(day==14), by="subject") %>%
+  ggplot(aes(x=plaquepercent,y=Component_1)) +
+  geom_point() +
+  xlab("Plaque%") +
+  ylab("Loading") +
+  stat_cor() +
+  theme(text=element_text(size=16))
+
+b = plotFeatures(processedTongue$mode2, cp_tongue, 1, flip=FALSE) + scale_fill_manual(values=phylum_colors[-c(3,7)]) + theme(legend.position="none")
+
+c = processedTongue$mode3 %>%
+  mutate(Component_1 = -1*cp_tongue$Fac[[3]][,1], day=c(-14,0,2,5,9,14,21)) %>%
+  ggplot(aes(x=day,y=Component_1)) +
+  annotate(geom = "rect", xmin = 0, xmax = 14, ymin = -Inf, ymax = Inf, fill = "red", colour = "black", alpha=0.25) +
+  geom_line() +
+  geom_point() +
+  xlab("Time point [days]") +
+  ylab("Loading") +
+  ylim(0,1) +
+  theme(legend.position="none", text=element_text(size=16))
+
+ggarrange(a,b,c, nrow=1, ncol=3)
+```
+
+```{r plot cp lowling comp 1}
+testFeatures(cp_lowling, processedLowling, 1, "Area_delta_R30") # flip
+
+a = processedLowling$mode1 %>%
+  mutate(Component_1 = cp_lowling$Fac[[1]][,1]) %>%
+  left_join(rf_data %>% select(subject,day,Area_delta_R30,plaquepercent,bomppercent) %>% filter(day==14), by="subject") %>%
+  ggplot(aes(x=Area_delta_R30,y=Component_1)) +
+  geom_point() +
+  xlab("RF%") +
+  ylab("Loading") +
+  stat_cor() +
+  theme(text=element_text(size=16))
+
+b = plotFeatures(processedLowling$mode2, cp_lowling, 1, flip=TRUE) + scale_fill_manual(values=phylum_colors[-7]) + theme(legend.position="none")
+
+c = processedLowling$mode3 %>%
+  mutate(Component_1 = cp_lowling$Fac[[3]][,1], day=c(-14,0,2,5,9,14,21)) %>%
+  ggplot(aes(x=day,y=Component_1)) +
+  annotate(geom = "rect", xmin = 0, xmax = 14, ymin = -Inf, ymax = Inf, fill = "red", colour = "black", alpha=0.25) +
+  geom_line() +
+  geom_point() +
+  xlab("Time point [days]") +
+  ylab("Loading") +
+  ylim(0,1) +
+  theme(legend.position="none", text=element_text(size=16))
+
+ggarrange(a,b,c, nrow=1, ncol=3)
+```
+
+```{r plot cp lowinter comp 2}
+testFeatures(cp_lowinter, processedLowinter, 2, "bomppercent") # no flip
+
+a = processedLowinter$mode1 %>%
+  mutate(Component_1 = cp_lowinter$Fac[[1]][,2]) %>%
+  left_join(rf_data %>% select(subject,day,Area_delta_R30,plaquepercent,bomppercent) %>% filter(day==14), by="subject") %>%
+  ggplot(aes(x=bomppercent,y=Component_1)) +
+  geom_point() +
+  xlab("BOMP%") +
+  ylab("Loading") +
+  stat_cor() +
+  theme(text=element_text(size=16))
+
+b = plotFeatures(processedLowinter$mode2, cp_lowinter, 2, flip=FALSE) + scale_fill_manual(values=phylum_colors[-c(3)]) + theme(legend.position="none")
+
+c = processedLowinter$mode3 %>%
+  mutate(Component_1 = -1*cp_lowinter$Fac[[3]][,2], day=c(-14,0,2,5,9,14,21)) %>%
+  ggplot(aes(x=day,y=Component_1)) +
+  annotate(geom = "rect", xmin = 0, xmax = 14, ymin = -Inf, ymax = Inf, fill = "red", colour = "black", alpha=0.25) +
+  geom_line() +
+  geom_point() +
+  xlab("Time point [days]") +
+  ylab("Loading") +
+  ylim(0,1) +
+  theme(legend.position="none", text=element_text(size=16))
+
+ggarrange(a,b,c, nrow=1, ncol=3)
+```
+
+```{r plot cp upling comp 2}
+testFeatures(cp_upling, processedUpling, 2, "Area_delta_R30") # flip
+
+a = processedUpling$mode1 %>%
+  mutate(Component_1 = cp_upling$Fac[[1]][,2]) %>%
+  left_join(rf_data %>% select(subject,day,Area_delta_R30,plaquepercent,bomppercent) %>% filter(day==14), by="subject") %>%
+  ggplot(aes(x=Area_delta_R30,y=Component_1)) +
+  geom_point() +
+  xlab("RF%") +
+  ylab("Loading") +
+  stat_cor() +
+  theme(text=element_text(size=16))
+
+b = plotFeatures(processedUpling$mode2, cp_upling, 2, flip=TRUE) + scale_fill_manual(values=phylum_colors[-c(3,7)]) + theme(legend.position="none")
+
+c = processedUpling$mode3 %>%
+  mutate(Component_1 = cp_upling$Fac[[3]][,2], day=c(-14,0,2,5,9,14,21)) %>%
+  ggplot(aes(x=day,y=Component_1)) +
+  annotate(geom = "rect", xmin = 0, xmax = 14, ymin = -Inf, ymax = Inf, fill = "red", colour = "black", alpha=0.25) +
+  geom_line() +
+  geom_point() +
+  xlab("Time point [days]") +
+  ylab("Loading") +
+  ylim(0,1) +
+  theme(legend.position="none", text=element_text(size=16))
+
+ggarrange(a,b,c, nrow=1, ncol=3)
+```
+
+```{r plot cp upinter comp 1}
+testFeatures(cp_upinter, processedUpinter, 1, "bomppercent") # flip
+testFeatures(cp_upinter, processedUpinter, 1, "gender") # flip
+
+a = processedUpinter$mode1 %>%
+  mutate(Component_1 = cp_upinter$Fac[[1]][,1]) %>%
+  left_join(rf_data %>% select(subject,day,Area_delta_R30,plaquepercent,bomppercent) %>% filter(day==14), by="subject") %>%
+  ggplot(aes(x=bomppercent,y=Component_1)) +
+  geom_point() +
+  xlab("BOMP%") +
+  ylab("Loading") +
+  stat_cor() +
+  theme(text=element_text(size=16))
+
+b = plotFeatures(processedUpinter$mode2, cp_upinter, 1, flip=TRUE) + scale_fill_manual(values=phylum_colors[-c(3,7)]) + theme(legend.position="none")
+
+c = processedUpinter$mode3 %>%
+  mutate(Component_1 = -1*cp_upinter$Fac[[3]][,1], day=c(-14,0,2,5,9,14,21)) %>%
+  ggplot(aes(x=day,y=Component_1)) +
+  annotate(geom = "rect", xmin = 0, xmax = 14, ymin = -Inf, ymax = Inf, fill = "red", colour = "black", alpha=0.25) +
+  geom_line() +
+  geom_point() +
+  xlab("Time point [days]") +
+  ylab("Loading") +
+  ylim(0,1) +
+  theme(legend.position="none", text=element_text(size=16))
+
+ggarrange(a,b,c, nrow=1, ncol=3)
+```
+
+```{r plot cp saliva comp 2}
+testFeatures(cp_saliva, processedSaliva, 2, "age") # no flip
+
+a = processedSaliva$mode1 %>%
+  mutate(Component_1 = cp_saliva$Fac[[1]][,2]) %>%
+  left_join(rf_data %>% select(subject,day,Area_delta_R30,plaquepercent,bomppercent) %>% filter(day==14), by="subject") %>%
+  ggplot(aes(x=age,y=Component_1)) +
+  geom_point() +
+  xlab("Age") +
+  ylab("Loading") +
+  stat_cor() +
+  theme(text=element_text(size=16))
+
+b = plotFeatures(processedSaliva$mode2, cp_saliva, 2, flip=FALSE) + scale_fill_manual(values=phylum_colors[-c(7)]) + theme(legend.position="none")
+
+c = processedSaliva$mode3 %>%
+  mutate(Component_1 = -1*cp_saliva$Fac[[3]][,2], day=c(-14,0,2,5,9,14,21)) %>%
+  ggplot(aes(x=day,y=Component_1)) +
+  annotate(geom = "rect", xmin = 0, xmax = 14, ymin = -Inf, ymax = Inf, fill = "red", colour = "black", alpha=0.25) +
+  geom_line() +
+  geom_point() +
+  xlab("Time point [days]") +
+  ylab("Loading") +
+  ylim(0,1) +
+  theme(legend.position="none", text=element_text(size=16))
+
+ggarrange(a,b,c, nrow=1, ncol=3)
+```
+
+# NPLS
+
+```{r prepare y}
+Y = processedTongue$mode1 %>% left_join(rf_data %>% select(subject,Area_delta_R30,day) %>% filter(day==14)) %>% select(Area_delta_R30) %>% pull()
+Ycnt = Y - mean(Y)
+
+Ymetab = processedMetabolomics$mode1 %>% left_join(rf_data %>% select(subject,Area_delta_R30,day) %>% filter(day==14)) %>% select(Area_delta_R30) %>% pull()
+Ymetab_cnt = Ymetab - mean(Ymetab)
+```
+
+```{r prepare CVs}
+# CV_tongue = NPLStoolbox::ncrossreg(processedTongue$data, Ycnt, maxNumComponents = 10)
+# CV_lowling = NPLStoolbox::ncrossreg(processedLowling$data, Ycnt, maxNumComponents = 10)
+# CV_lowinter = NPLStoolbox::ncrossreg(processedLowinter$data, Ycnt, maxNumComponents = 10)
+# CV_upling = NPLStoolbox::ncrossreg(processedUpling$data, Ycnt, maxNumComponents = 10)
+# CV_upinter = NPLStoolbox::ncrossreg(processedUpinter$data, Ycnt, maxNumComponents = 10)
+# CV_saliva = NPLStoolbox::ncrossreg(processedSaliva$data, Ycnt, maxNumComponents = 10)
+# CV_metab = NPLStoolbox::ncrossreg(processedMetabolomics$data, Ymetab_cnt, maxNumComponents = 10)
+# 
+# saveRDS(CV_tongue, "./NPLS_CV_tongue.RDS")
+# saveRDS(CV_lowling, "./NPLS_CV_lowling.RDS")
+# saveRDS(CV_lowinter, "./NPLS_CV_lowinter.RDS")
+# saveRDS(CV_upling, "./NPLS_CV_upling.RDS")
+# saveRDS(CV_upinter, "./NPLS_CV_upinter.RDS")
+# saveRDS(CV_saliva, "./NPLS_CV_saliva.RDS")
+# saveRDS(CV_metab, "./NPLS_CV_metab.RDS")
+
+CV_tongue = readRDS("./NPLS_CV_tongue.RDS")
+CV_lowling = readRDS("./NPLS_CV_lowling.RDS")
+CV_lowinter = readRDS("./NPLS_CV_lowinter.RDS")
+CV_upling = readRDS("./NPLS_CV_upling.RDS")
+CV_upinter = readRDS("./NPLS_CV_upinter.RDS")
+CV_saliva = readRDS("./NPLS_CV_saliva.RDS")
+CV_metab = readRDS("./NPLS_CV_metab.RDS")
+
+a=CV_tongue$varExp %>% pivot_longer(-numComponents) %>% ggplot(aes(x=as.factor(numComponents),y=value,col=as.factor(name),group=as.factor(name))) + geom_line() + geom_point() + xlab("Number of components") + ylab("Variance explained (%)") + theme(legend.position="none")
+b=CV_tongue$RMSE %>% ggplot(aes(x=as.factor(numComponents),y=RMSE,group=1)) + geom_line() + geom_point() + xlab("Number of components") + ylab("RMSECV")
+ggarrange(a,b)
+
+a=CV_lowling$varExp %>% pivot_longer(-numComponents) %>% ggplot(aes(x=as.factor(numComponents),y=value,col=as.factor(name),group=as.factor(name))) + geom_line() + geom_point() + xlab("Number of components") + ylab("Variance explained (%)") + theme(legend.position="none")
+b=CV_lowling$RMSE %>% ggplot(aes(x=as.factor(numComponents),y=RMSE,group=1)) + geom_line() + geom_point() + xlab("Number of components") + ylab("RMSECV")
+ggarrange(a,b)
+
+a=CV_lowinter$varExp %>% pivot_longer(-numComponents) %>% ggplot(aes(x=as.factor(numComponents),y=value,col=as.factor(name),group=as.factor(name))) + geom_line() + geom_point() + xlab("Number of components") + ylab("Variance explained (%)") + theme(legend.position="none")
+b=CV_lowinter$RMSE %>% ggplot(aes(x=as.factor(numComponents),y=RMSE,group=1)) + geom_line() + geom_point() + xlab("Number of components") + ylab("RMSECV")
+ggarrange(a,b)
+
+a=CV_upling$varExp %>% pivot_longer(-numComponents) %>% ggplot(aes(x=as.factor(numComponents),y=value,col=as.factor(name),group=as.factor(name))) + geom_line() + geom_point() + xlab("Number of components") + ylab("Variance explained (%)") + theme(legend.position="none")
+b=CV_upling$RMSE %>% ggplot(aes(x=as.factor(numComponents),y=RMSE,group=1)) + geom_line() + geom_point() + xlab("Number of components") + ylab("RMSECV")
+ggarrange(a,b)
+
+a=CV_upinter$varExp %>% pivot_longer(-numComponents) %>% ggplot(aes(x=as.factor(numComponents),y=value,col=as.factor(name),group=as.factor(name))) + geom_line() + geom_point() + xlab("Number of components") + ylab("Variance explained (%)") + theme(legend.position="none")
+b=CV_upinter$RMSE %>% ggplot(aes(x=as.factor(numComponents),y=RMSE,group=1)) + geom_line() + geom_point() + xlab("Number of components") + ylab("RMSECV")
+ggarrange(a,b)
+
+a=CV_saliva$varExp %>% pivot_longer(-numComponents) %>% ggplot(aes(x=as.factor(numComponents),y=value,col=as.factor(name),group=as.factor(name))) + geom_line() + geom_point() + xlab("Number of components") + ylab("Variance explained (%)") + theme(legend.position="none")
+b=CV_saliva$RMSE %>% ggplot(aes(x=as.factor(numComponents),y=RMSE,group=1)) + geom_line() + geom_point() + xlab("Number of components") + ylab("RMSECV")
+ggarrange(a,b)
+
+a=CV_metab$varExp %>% pivot_longer(-numComponents) %>% ggplot(aes(x=as.factor(numComponents),y=value,col=as.factor(name),group=as.factor(name))) + geom_line() + geom_point() + xlab("Number of components") + ylab("Variance explained (%)") + theme(legend.position="none")
+b=CV_metab$RMSE %>% ggplot(aes(x=as.factor(numComponents),y=RMSE,group=1)) + geom_line() + geom_point() + xlab("Number of components") + ylab("RMSECV")
+ggarrange(a,b)
+```
+
+```{r npls models}
+# npls_tongue = NPLStoolbox::triPLS1(processedTongue$data, Ycnt, 3)
+# npls_lowling = NPLStoolbox::triPLS1(processedLowling$data, Ycnt, 2)
+# npls_lowinter = NPLStoolbox::triPLS1(processedLowinter$data, Ycnt, 3)
+# npls_upling = NPLStoolbox::triPLS1(processedUpling$data, Ycnt, 1)
+# npls_upinter = NPLStoolbox::triPLS1(processedUpinter$data, Ycnt, 1)
+# npls_saliva = NPLStoolbox::triPLS1(processedSaliva$data, Ycnt, 1)
+# npls_metab = NPLStoolbox::triPLS1(processedMetabolomics$data, Ymetab_cnt, 1)
+# 
+# saveRDS(npls_tongue, "./NPLS_tongue.RDS")
+# saveRDS(npls_lowling, "./NPLS_lowling.RDS")
+# saveRDS(npls_lowinter, "./NPLS_lowinter.RDS")
+# saveRDS(npls_upling, "./NPLS_upling.RDS")
+# saveRDS(npls_upinter, "./NPLS_upinter.RDS")
+# saveRDS(npls_saliva, "./NPLS_saliva.RDS")
+# saveRDS(npls_metab, "./NPLS_metab.RDS")
+
+npls_tongue = readRDS("./NPLS_tongue.RDS")
+npls_lowling = readRDS("./NPLS_lowling.RDS")
+npls_lowinter = readRDS("./NPLS_lowinter.RDS")
+npls_upling = readRDS("./NPLS_upling.RDS")
+npls_upinter = readRDS("./NPLS_upinter.RDS")
+npls_saliva = readRDS("./NPLS_saliva.RDS")
+npls_metab = readRDS("./NPLS_metab.RDS")
+```
+
+```{r npls permanova test}
+testMetadata2(npls_tongue, processedTongue$mode1)
+testMetadata2(npls_lowling, processedLowling$mode1)
+testMetadata2(npls_lowinter, processedLowinter$mode1)
+testMetadata2(npls_upling, processedUpling$mode1)
+testMetadata2(npls_upinter, processedUpinter$mode1)
+testMetadata2(npls_saliva, processedSaliva$mode1)
+testMetadata2(npls_metab, processedMetabolomics$mode1)
+
+uncorrectedP = matrix(c(0.0247, 0.4653, 0.0558, 0.7427, 0.0029, 0.1006, 0.1239, 0.0003, 0.0392, 0.5758, 0.2363, 0.4183, 0.0067, 0.1561, 0.2915, 0.0932, 0.4019, 0.0001, 0.0855, 0.8304, 0.1677, 0.1159, 0.0004, 0.0587, 0.6055, 0.8434, 0.1455, 0.0007, 0.1484, 0.5862, 0.1107, 0.1857, 0.0079, 0.5435, 0.1683), nrow=5, ncol=7)
+
+apply(uncorrectedP, 2, FUN=function(x){p.adjust(x,"BH")}) # BH per dataset
+```
+
+```{r npls test metadata}
+uncorrectedP = matrix(0L, nrow=9, ncol=5)
+uncorrectedP[1,] = testMetadata(npls_lowling, processedLowling, 1)
+uncorrectedP[2,] = testMetadata(npls_lowling, processedLowling, 2)
+uncorrectedP[3,] = testMetadata(npls_lowinter, processedLowinter, 1)
+uncorrectedP[4,] = testMetadata(npls_lowinter, processedLowinter, 2)
+uncorrectedP[5,] = testMetadata(npls_lowinter, processedLowinter, 3)
+uncorrectedP[6,] = testMetadata(npls_upling, processedUpling, 1)
+uncorrectedP[7,] = testMetadata(npls_upinter, processedUpinter, 1)
+uncorrectedP[8,] = testMetadata(npls_saliva, processedSaliva, 1)
+uncorrectedP[9,] = testMetadata(npls_metab, processedMetabolomics, 1)
+
+correctedP = matrix(p.adjust(uncorrectedP, "BH"), nrow=9, ncol=5)
+
+temp = transformPARAFACloadings(npls_lowling$Fac, 1)
+df = processedLowling$mode1 %>% left_join(rf_data %>% filter(day==14)) %>% left_join(age_gender) %>% mutate(Component_1 = temp[,1], Component_2 = temp[,2])
+summary(lm(Area_delta_R30 ~ Component_1 + Component_2, data=df))
+
+temp = transformPARAFACloadings(npls_lowinter$Fac, 1)
+df = processedLowinter$mode1 %>% left_join(rf_data %>% filter(day==14)) %>% mutate(Component_1 = temp[,1], Component_2 = temp[,2], Component_3 = temp[,3])
+summary(lm(Area_delta_R30 ~ Component_1 + Component_2 + Component_3, data=df))
+
+temp = transformPARAFACloadings(npls_upling$Fac, 1)
+df = processedUpling$mode1 %>% left_join(rf_data %>% filter(day==14)) %>% mutate(Component_1 = temp[,1])
+summary(lm(Area_delta_R30 ~ Component_1, data=df))
+
+temp = transformPARAFACloadings(npls_upinter$Fac, 1)
+df = processedUpinter$mode1 %>% left_join(rf_data %>% filter(day==14)) %>% mutate(Component_1 = temp[,1])
+summary(lm(Area_delta_R30 ~ Component_1, data=df))
+
+temp = transformPARAFACloadings(npls_saliva$Fac, 1)
+df = processedSaliva$mode1 %>% left_join(rf_data %>% filter(day==14)) %>% mutate(Component_1 = temp[,1])
+summary(lm(Area_delta_R30 ~ Component_1, data=df))
+
+temp = transformPARAFACloadings(npls_metab$Fac, 1)
+df = processedMetabolomics$mode1 %>% left_join(rf_data %>% filter(day==14)) %>% mutate(Component_1 = temp[,1])
+summary(lm(Area_delta_R30 ~ Component_1, data=df))
+```
+
+```{r feature mode plot}
+# Briefly check how the signs work
+testFeatures(npls_lowling, processedLowling, 1, "Area_delta_R30") # flip
+testFeatures(npls_lowling, processedLowling, 2, "Area_delta_R30") # flip
+testFeatures(npls_lowinter, processedLowinter, 1, "Area_delta_R30")
+testFeatures(npls_lowinter, processedLowinter, 2, "Area_delta_R30") # flip
+testFeatures(npls_lowinter, processedLowinter, 3, "Area_delta_R30") # flip
+testFeatures(npls_upling, processedUpling, 1, "Area_delta_R30")
+testFeatures(npls_upinter, processedUpinter, 1, "Area_delta_R30")
+testFeatures(npls_saliva, processedSaliva, 1, "Area_delta_R30")
+testFeatures(npls_metab, processedMetabolomics, 1, "Area_delta_R30")
+
+# Lowling
+temp = transformPARAFACloadings(npls_lowling$Fac, 2)
+a = processedLowling$mode2 %>% mutate(C1 = -1*temp[,1], C2 = -1*temp[,2]) %>% filter(Species != "NA") %>% mutate(name=paste0(Genus," ", Species)) %>% select(name, C1, C2, Phylum) %>% ggplot(aes(x=C1,y=C2,col=as.factor(Phylum),label=name)) + geom_point() +geom_text_repel(max.overlaps = 8) + xlab("Component 1") + ylab("Component 2") + theme(legend.position="none",text=element_text(size=16)) + scale_fill_manual(values=hue_pal()(7)[-7])
+
+# Lowinter
+temp = transformPARAFACloadings(npls_lowinter$Fac, 2)
+b = processedLowinter$mode2 %>% mutate(C1 = temp[,1], C2 = -1*temp[,2]) %>% filter(Species != "NA") %>% mutate(name=paste0(Genus," ", Species)) %>% select(name, C1, C2, Phylum) %>% ggplot(aes(x=C1,y=C2,col=as.factor(Phylum),label=name)) + geom_point() +geom_text_repel(max.overlaps = 8) + xlab("Component 1") + ylab("Component 2") + theme(legend.position="none",text=element_text(size=16))
+
+c = plotFeatures(processedUpling$mode2, npls_upling, 1, flip=FALSE) + scale_fill_manual(values=phylum_colors[-c(3,7)])
+d = plotFeatures(processedUpinter$mode2, npls_upinter, 1, flip=FALSE) + scale_fill_manual(values=phylum_colors[-c(3,7)])
+e = plotFeatures(processedSaliva$mode2, npls_saliva, 1, flip=FALSE) + scale_fill_manual(values=phylum_colors[-c(3,7)])
+
+
+df = processedMetabolomics$mode2 %>% mutate(Component_1 = npls_metab$Fac[[2]][,1]) %>% arrange(Component_1) %>% mutate(index=1:nrow(.))
+df = rbind(df %>% head(n=10), df %>% tail(n=10))
+
+f=df %>%
+  ggplot(aes(x=Component_1,y=as.factor(index),fill=as.factor(Type))) +
+  geom_bar(stat="identity", col="black") +
+  scale_y_discrete(label=df$Name) +
+  xlab("Loading") +
+  ylab("") +
+  guides(fill=guide_legend(title="Class")) +
+  theme(text=element_text(size=16), legend.position="top")
+
+f2 = df %>%
+  ggplot(aes(x = Component_1, y = as.factor(index),
+             fill = as.factor(Type),
+             pattern = as.factor(Type))) +
+  geom_bar_pattern(stat = "identity",
+                   colour = "black",
+                   pattern = "stripe",
+                   pattern_fill = "black",
+                   pattern_density = 0.2,
+                   pattern_spacing = 0.05,
+                   pattern_angle = 45,
+                   pattern_size = 0.2) +
+  scale_y_discrete(labels = df$Name) +
+  xlab("Loading") +
+  ylab("") +
+  guides(fill = guide_legend(title = "Class"),
+         pattern = "none") +
+  theme(text = element_text(size = 16),
+        legend.position = "top")
+
+ggarrange(a,b,c,d,e,f2, nrow=3, ncol=2, common.legend=TRUE)
+ggarrange(a,b,c,d,e, nrow=3, ncol=2, common.legend=TRUE)
+```
+
+```{r npls time mode loadings}
+a = processedLowling$mode3 %>%
+  mutate(Component_1 = -npls_lowling$Fac[[3]][,1], Component_2 = -npls_lowling$Fac[[3]][,2], day=c(-14,0,2,5,9,14,21)) %>%
+  select(-visit,-status) %>%
+  pivot_longer(-day) %>%
+  ggplot(aes(x=day,y=value,col=as.factor(name))) +
+  annotate(geom = "rect", xmin = 0, xmax = 14, ymin = -Inf, ymax = Inf, fill = "red", colour = "black", alpha=0.25) +
+  geom_line() +
+  geom_point() +
+  scale_colour_manual(values=hue_pal()(3)[1:2]) +
+  theme(legend.position="none") +
+  xlab("Time point [days]") +
+  ylab("Loading") +
+  ylim(0,1)
+  
+
+b = processedLowinter$mode3 %>%
+  mutate(Component_1 = npls_lowinter$Fac[[3]][,1], Component_2 = npls_lowinter$Fac[[3]][,2], Component_3 = npls_lowinter$Fac[[3]][,3], day=c(-14,0,2,5,9,14,21)) %>%
+  select(-visit,-status) %>%
+  pivot_longer(-day) %>%
+  ggplot(aes(x=day,y=value,col=as.factor(name))) +
+  annotate(geom = "rect", xmin = 0, xmax = 14, ymin = -Inf, ymax = Inf, fill = "red", colour = "black", alpha=0.25) +
+  geom_line() +
+  geom_point() +
+  scale_colour_manual(name="Component",labels=1:3,values=hue_pal()(3)) + 
+  theme(legend.position="none") +
+  xlab("Time point [days]") +
+  ylab("Loading") +
+  ylim(0,1)
+
+c = processedUpling$mode3 %>%
+  mutate(Component_1 = npls_upling$Fac[[3]][,1], day=c(-14,0,2,5,9,14,21)) %>%
+  ggplot(aes(x=day,y=Component_1)) +
+  annotate(geom = "rect", xmin = 0, xmax = 14, ymin = -Inf, ymax = Inf, fill = "red", colour = "black", alpha=0.25) +
+  geom_line() +
+  geom_point() +
+  theme(legend.position="none") +
+  xlab("Time point [days]") +
+  ylab("Loading") +
+  ylim(0,1)
+
+d = processedUpinter$mode3 %>%
+  mutate(Component_1 = npls_upinter$Fac[[3]][,1], day=c(-14,0,2,5,9,14,21)) %>%
+  ggplot(aes(x=day,y=Component_1)) +
+  annotate(geom = "rect", xmin = 0, xmax = 14, ymin = -Inf, ymax = Inf, fill = "red", colour = "black", alpha=0.25) +
+  geom_line() +
+  geom_point() +
+  theme(legend.position="none") +
+  xlab("Time point [days]") +
+  ylab("Loading") +
+  ylim(0,1)
+
+e = processedSaliva$mode3 %>%
+  mutate(Component_1 = npls_saliva$Fac[[3]][,1], day=c(-14,0,2,5,9,14,21)) %>%
+  ggplot(aes(x=day,y=Component_1)) +
+  annotate(geom = "rect", xmin = 0, xmax = 14, ymin = -Inf, ymax = Inf, fill = "red", colour = "black", alpha=0.25) +
+  geom_line() +
+  geom_point() +
+  theme(legend.position="none") +
+  xlab("Time point [days]") +
+  ylab("Loading") +
+  ylim(0,1)
+
+f = processedMetabolomics$mode3 %>%
+  mutate(Component_1 = npls_metab$Fac[[3]][,1], day=c(0,2,5,9,14)) %>%
+  ggplot(aes(x=day,y=Component_1)) +
+  annotate(geom = "rect", xmin = 0, xmax = 14, ymin = -Inf, ymax = Inf, fill = "red", colour = "black", alpha=0.25) +
+  geom_line() +
+  geom_point() +
+  theme(legend.position="none") +
+  xlab("Time point [days]") +
+  ylab("Loading") +
+  ylim(0,1)
+
+ggarrange(a,b,c,d,e,f, nrow=3, ncol=2)
+```
+
+```{r plot npls tongue comp 1}
+testFeatures(npls_tongue, processedTongue, 1, "Area_delta_R30") # flip
+
+a = processedTongue$mode1 %>%
+  mutate(Component_1 = npls_tongue$Fac[[1]][,1]) %>%
+  left_join(rf_data %>% select(subject,day,Area_delta_R30,plaquepercent,bomppercent) %>% filter(day==14), by="subject") %>%
+  ggplot(aes(x=Area_delta_R30,y=Component_1)) +
+  geom_point() +
+  xlab("RF%") +
+  ylab("Loading") +
+  stat_cor() +
+  theme(text=element_text(size=16))
+
+b = plotFeatures(processedTongue$mode2, npls_tongue, 1, flip=TRUE) + scale_fill_manual(values=phylum_colors[-c(3,7)]) + theme(legend.position="none")
+
+c = processedTongue$mode3 %>%
+  mutate(Component_1 = -1*npls_tongue$Fac[[3]][,1], day=c(-14,0,2,5,9,14,21)) %>%
+  ggplot(aes(x=day,y=Component_1)) +
+  annotate(geom = "rect", xmin = 0, xmax = 14, ymin = -Inf, ymax = Inf, fill = "red", colour = "black", alpha=0.25) +
+  geom_line() +
+  geom_point() +
+  xlab("Time point [days]") +
+  ylab("Loading") +
+  ylim(0,1) +
+  theme(legend.position="none", text=element_text(size=16))
+
+ggarrange(a,b,c, nrow=1, ncol=3)
+```
+
+```{r plot npls tongue comp 2}
+testFeatures(npls_tongue, processedTongue, 2, "age") # flip
+
+a = processedTongue$mode1 %>%
+  mutate(Component_1 = npls_tongue$Fac[[1]][,2]) %>%
+  left_join(rf_data %>% select(subject,day,Area_delta_R30,plaquepercent,bomppercent) %>% filter(day==14), by="subject") %>%
+  ggplot(aes(x=age,y=Component_1)) +
+  geom_point() +
+  xlab("Age") +
+  ylab("Loading") +
+  stat_cor() +
+  theme(text=element_text(size=16))
+
+b = plotFeatures(processedTongue$mode2, npls_tongue, 2, flip=TRUE) + scale_fill_manual(values=phylum_colors[-c(6,7)]) + theme(legend.position="none")
+
+c = processedTongue$mode3 %>%
+  mutate(Component_1 = npls_tongue$Fac[[3]][,2], day=c(-14,0,2,5,9,14,21)) %>%
+  ggplot(aes(x=day,y=Component_1)) +
+  annotate(geom = "rect", xmin = 0, xmax = 14, ymin = -Inf, ymax = Inf, fill = "red", colour = "black", alpha=0.25) +
+  geom_line() +
+  geom_point() +
+  xlab("Time point [days]") +
+  ylab("Loading") +
+  ylim(0,1) +
+  theme(legend.position="none", text=element_text(size=16))
+
+ggarrange(a,b,c, nrow=1, ncol=3)
+```
+
+```{r plot npls tongue comp 3}
+testFeatures(npls_tongue, processedTongue, 3, "age") # flip
+testFeatures(npls_tongue, processedTongue, 3, "plaquepercent") # flip
+
+a = processedTongue$mode1 %>%
+  mutate(Component_1 = npls_tongue$Fac[[1]][,3]) %>%
+  left_join(rf_data %>% select(subject,day,Area_delta_R30,plaquepercent,bomppercent) %>% filter(day==14), by="subject") %>%
+  ggplot(aes(x=age,y=Component_1)) +
+  geom_point() +
+  xlab("Age") +
+  ylab("Loading") +
+  stat_cor() +
+  theme(text=element_text(size=16))
+
+b = plotFeatures(processedTongue$mode2, npls_tongue, 3, flip=TRUE) + scale_fill_manual(values=phylum_colors[-c(3,7)]) + theme(legend.position="none")
+
+c = processedTongue$mode3 %>%
+  mutate(Component_1 = -1*npls_tongue$Fac[[3]][,3], day=c(-14,0,2,5,9,14,21)) %>%
+  ggplot(aes(x=day,y=Component_1)) +
+  annotate(geom = "rect", xmin = 0, xmax = 14, ymin = -Inf, ymax = Inf, fill = "red", colour = "black", alpha=0.25) +
+  geom_line() +
+  geom_point() +
+  xlab("Time point [days]") +
+  ylab("Loading") +
+  ylim(0,1) +
+  theme(legend.position="none", text=element_text(size=16))
+
+ggarrange(a,b,c, nrow=1, ncol=3)
+```
+```{r plot npls lowling comp 1}
+testFeatures(npls_lowling, processedLowling, 1, "Area_delta_R30") # flip
+
+a = processedLowling$mode1 %>%
+  mutate(Component_1 = npls_lowling$Fac[[1]][,1]) %>%
+  left_join(rf_data %>% select(subject,day,Area_delta_R30,plaquepercent,bomppercent) %>% filter(day==14), by="subject") %>%
+  ggplot(aes(x=Area_delta_R30,y=Component_1)) +
+  geom_point() +
+  xlab("RF%") +
+  ylab("Loading") +
+  stat_cor() +
+  theme(text=element_text(size=16))
+
+b = plotFeatures(processedLowling$mode2, npls_lowling, 1, flip=TRUE) + scale_fill_manual(values=phylum_colors[-7]) + theme(legend.position="none")
+
+c = processedLowling$mode3 %>%
+  mutate(Component_1 = -1*npls_lowling$Fac[[3]][,1], day=c(-14,0,2,5,9,14,21)) %>%
+  ggplot(aes(x=day,y=Component_1)) +
+  annotate(geom = "rect", xmin = 0, xmax = 14, ymin = -Inf, ymax = Inf, fill = "red", colour = "black", alpha=0.25) +
+  geom_line() +
+  geom_point() +
+  xlab("Time point [days]") +
+  ylab("Loading") +
+  ylim(0,1) +
+  theme(legend.position="none", text=element_text(size=16))
+
+ggarrange(a,b,c, nrow=1, ncol=3)
+```
+```{r plot npls lowling comp 2}
+testFeatures(npls_lowling, processedLowling, 2, "gender") # no flip
+
+a = processedLowling$mode1 %>%
+  mutate(Component_1 = npls_lowling$Fac[[1]][,2]) %>%
+  left_join(rf_data %>% select(subject,day,Area_delta_R30,plaquepercent,bomppercent) %>% filter(day==14), by="subject") %>%
+  ggplot(aes(x=as.factor(gender),y=Component_1)) +
+  geom_boxplot() +
+  xlab("Gender") +
+  ylab("Loading") +
+  scale_x_discrete(labels=c("Male","Female")) +
+  theme(text=element_text(size=16))
+
+b = plotFeatures(processedLowling$mode2, npls_lowling, 2, flip=FALSE) + scale_fill_manual(values=phylum_colors[-7]) + theme(legend.position="none")
+
+c = processedLowling$mode3 %>%
+  mutate(Component_1 = -1*npls_lowling$Fac[[3]][,2], day=c(-14,0,2,5,9,14,21)) %>%
+  ggplot(aes(x=day,y=Component_1)) +
+  annotate(geom = "rect", xmin = 0, xmax = 14, ymin = -Inf, ymax = Inf, fill = "red", colour = "black", alpha=0.25) +
+  geom_line() +
+  geom_point() +
+  xlab("Time point [days]") +
+  ylab("Loading") +
+  ylim(0,1) +
+  theme(legend.position="none", text=element_text(size=16))
+
+ggarrange(a,b,c, nrow=1, ncol=3)
+```
+
+
+```{r plot npls lowinter comp 1}
+testFeatures(npls_lowinter, processedLowinter, 1, "Area_delta_R30") # NO flip
+
+a = processedLowinter$mode1 %>%
+  mutate(Component_1 = npls_lowinter$Fac[[1]][,1]) %>%
+  left_join(rf_data %>% select(subject,day,Area_delta_R30,plaquepercent,bomppercent) %>% filter(day==14), by="subject") %>%
+  ggplot(aes(x=Area_delta_R30,y=Component_1)) +
+  geom_point() +
+  xlab("RF%") +
+  ylab("Loading") +
+  stat_cor() +
+  theme(text=element_text(size=16))
+
+b = plotFeatures(processedLowinter$mode2, npls_lowinter, 1, flip=FALSE) + scale_fill_manual(values=phylum_colors[-7]) + theme(legend.position="none")
+
+c = processedLowinter$mode3 %>%
+  mutate(Component_1 = npls_lowinter$Fac[[3]][,1], day=c(-14,0,2,5,9,14,21)) %>%
+  ggplot(aes(x=day,y=Component_1)) +
+  annotate(geom = "rect", xmin = 0, xmax = 14, ymin = -Inf, ymax = Inf, fill = "red", colour = "black", alpha=0.25) +
+  geom_line() +
+  geom_point() +
+  xlab("Time point [days]") +
+  ylab("Loading") +
+  ylim(0,1) +
+  theme(legend.position="none", text=element_text(size=16))
+
+ggarrange(a,b,c, nrow=1, ncol=3)
+```
+
+```{r plot npls upling comp 1}
+model = npls_upling
+df = processedUpling
+
+testFeatures(model, df, 1, "Area_delta_R30") # NO flip
+
+a = df$mode1 %>%
+  mutate(Component_1 = model$Fac[[1]][,1]) %>%
+  left_join(rf_data %>% select(subject,day,Area_delta_R30,plaquepercent,bomppercent) %>% filter(day==14), by="subject") %>%
+  ggplot(aes(x=Area_delta_R30,y=Component_1)) +
+  geom_point() +
+  xlab("RF%") +
+  ylab("Loading") +
+  stat_cor() +
+  theme(text=element_text(size=16))
+
+b = plotFeatures(df$mode2, model, 1, flip=FALSE) + scale_fill_manual(values=phylum_colors[-c(3,7)]) + theme(legend.position="none")
+
+c = df$mode3 %>%
+  mutate(Component_1 = model$Fac[[3]][,1], day=c(-14,0,2,5,9,14,21)) %>%
+  ggplot(aes(x=day,y=Component_1)) +
+  annotate(geom = "rect", xmin = 0, xmax = 14, ymin = -Inf, ymax = Inf, fill = "red", colour = "black", alpha=0.25) +
+  geom_line() +
+  geom_point() +
+  xlab("Time point [days]") +
+  ylab("Loading") +
+  ylim(0,1) +
+  theme(legend.position="none", text=element_text(size=16))
+
+ggarrange(a,b,c, nrow=1, ncol=3)
+```
+
+```{r plot npls upinter comp 1}
+model = npls_upinter
+df = processedUpinter
+
+testFeatures(model, df, 1, "Area_delta_R30") # NO flip
+
+a = df$mode1 %>%
+  mutate(Component_1 = model$Fac[[1]][,1]) %>%
+  left_join(rf_data %>% select(subject,day,Area_delta_R30,plaquepercent,bomppercent) %>% filter(day==14), by="subject") %>%
+  ggplot(aes(x=Area_delta_R30,y=Component_1)) +
+  geom_point() +
+  xlab("RF%") +
+  ylab("Loading") +
+  stat_cor() +
+  theme(text=element_text(size=16))
+
+b = plotFeatures(df$mode2, model, 1, flip=FALSE) + scale_fill_manual(values=phylum_colors[-c(3,7)]) + theme(legend.position="none")
+
+c = df$mode3 %>%
+  mutate(Component_1 = model$Fac[[3]][,1], day=c(-14,0,2,5,9,14,21)) %>%
+  ggplot(aes(x=day,y=Component_1)) +
+  annotate(geom = "rect", xmin = 0, xmax = 14, ymin = -Inf, ymax = Inf, fill = "red", colour = "black", alpha=0.25) +
+  geom_line() +
+  geom_point() +
+  xlab("Time point [days]") +
+  ylab("Loading") +
+  ylim(0,1) +
+  theme(legend.position="none", text=element_text(size=16))
+
+ggarrange(a,b,c, nrow=1, ncol=3)
+```
+
+```{r plot npls saliva comp 1}
+model = npls_saliva
+df = processedSaliva
+
+testFeatures(model, df, 1, "Area_delta_R30") # NO flip
+
+a = df$mode1 %>%
+  mutate(Component_1 = model$Fac[[1]][,1]) %>%
+  left_join(rf_data %>% select(subject,day,Area_delta_R30,plaquepercent,bomppercent) %>% filter(day==14), by="subject") %>%
+  ggplot(aes(x=Area_delta_R30,y=Component_1)) +
+  geom_point() +
+  xlab("RF%") +
+  ylab("Loading") +
+  stat_cor() +
+  theme(text=element_text(size=16))
+
+b = plotFeatures(df$mode2, model, 1, flip=FALSE) + scale_fill_manual(values=phylum_colors[-c(3,7)]) + theme(legend.position="none")
+
+c = df$mode3 %>%
+  mutate(Component_1 = model$Fac[[3]][,1], day=c(-14,0,2,5,9,14,21)) %>%
+  ggplot(aes(x=day,y=Component_1)) +
+  annotate(geom = "rect", xmin = 0, xmax = 14, ymin = -Inf, ymax = Inf, fill = "red", colour = "black", alpha=0.25) +
+  geom_line() +
+  geom_point() +
+  xlab("Time point [days]") +
+  ylab("Loading") +
+  ylim(0,1) +
+  theme(legend.position="none", text=element_text(size=16))
+
+ggarrange(a,b,c, nrow=1, ncol=3)
+```
+
+```{r plot npls saliva metab comp 1}
+model = npls_metab
+df = processedMetabolomics
+
+testFeatures(model, df, 1, "Area_delta_R30") # NO flip
+
+a = df$mode1 %>%
+  mutate(Component_1 = model$Fac[[1]][,1]) %>%
+  left_join(rf_data %>% select(subject,day,Area_delta_R30,plaquepercent,bomppercent) %>% filter(day==14), by="subject") %>%
+  ggplot(aes(x=Area_delta_R30,y=Component_1)) +
+  geom_point() +
+  xlab("RF%") +
+  ylab("Loading") +
+  stat_cor() +
+  theme(text=element_text(size=16))
+
+temp = processedMetabolomics$mode2 %>% mutate(Component_1 = npls_metab$Fac[[2]][,1]) %>% arrange(Component_1) %>% mutate(index=1:nrow(.))
+temp = rbind(temp %>% head(n=10), temp %>% tail(n=10))
+
+b = temp %>%
+  ggplot(aes(x = Component_1, y = as.factor(index),
+             fill = as.factor(Type),
+             pattern = as.factor(Type))) +
+  geom_bar_pattern(stat = "identity",
+                   colour = "black",
+                   pattern = "stripe",
+                   pattern_fill = "black",
+                   pattern_density = 0.2,
+                   pattern_spacing = 0.05,
+                   pattern_angle = 45,
+                   pattern_size = 0.2) +
+  scale_y_discrete(labels = temp$Name) +
+  xlab("Loading") +
+  ylab("") +
+  guides(fill = guide_legend(title = "Class"),
+         pattern = "none") +
+  theme(text = element_text(size = 16),
+        legend.position = "none")
+
+c = df$mode3 %>%
+  mutate(Component_1 = model$Fac[[3]][,1], day=c(0,2,5,9,14)) %>%
+  ggplot(aes(x=day,y=Component_1)) +
+  annotate(geom = "rect", xmin = 0, xmax = 14, ymin = -Inf, ymax = Inf, fill = "red", colour = "black", alpha=0.25) +
+  geom_line() +
+  geom_point() +
+  xlab("Time point [days]") +
+  ylab("Loading") +
+  ylim(0,1) +
+  theme(legend.position="none", text=element_text(size=16))
+
+ggarrange(a,b,c, nrow=1, ncol=3)
+```
+
+# ACMTF
+```{r acmtf homogenize and process data}
+homogenizedSubjects = parafac4microbiome::vanderPloeg2024$metabolomics$mode1$subject
+mask = parafac4microbiome::vanderPloeg2024$tongue$mode1$subject %in% homogenizedSubjects
+
+# Tongue
+temp = parafac4microbiome::vanderPloeg2024$tongue
+temp$data = temp$data[mask,,]
+temp$mode1 = temp$mode1[mask,]
+processedTongue = processDataCube(temp, sparsityThreshold=0.50, considerGroups=TRUE, groupVariable="RFgroup", CLR=TRUE, centerMode=1, scaleMode=2)
+
+# Lowling
+temp = parafac4microbiome::vanderPloeg2024$lower_jaw_lingual
+temp$data = temp$data[mask,,]
+temp$mode1 = temp$mode1[mask,]
+processedLowling = processDataCube(temp, sparsityThreshold=0.50, considerGroups=TRUE, groupVariable="RFgroup", CLR=TRUE, centerMode=1, scaleMode=2)
+
+# Lowinter
+temp = parafac4microbiome::vanderPloeg2024$lower_jaw_interproximal
+temp$data = temp$data[mask,,]
+temp$mode1 = temp$mode1[mask,]
+processedLowinter = processDataCube(temp, sparsityThreshold=0.50, considerGroups=TRUE, groupVariable="RFgroup", CLR=TRUE, centerMode=1, scaleMode=2)
+
+# Upling
+temp = parafac4microbiome::vanderPloeg2024$upper_jaw_lingual
+temp$data = temp$data[mask,,]
+temp$mode1 = temp$mode1[mask,]
+processedUpling = processDataCube(temp, sparsityThreshold=0.50, considerGroups=TRUE, groupVariable="RFgroup", CLR=TRUE, centerMode=1, scaleMode=2)
+
+# Upinter
+temp = parafac4microbiome::vanderPloeg2024$upper_jaw_interproximal
+temp$data = temp$data[mask,,]
+temp$mode1 = temp$mode1[mask,]
+processedUpinter = processDataCube(temp, sparsityThreshold=0.50, considerGroups=TRUE, groupVariable="RFgroup", CLR=TRUE, centerMode=1, scaleMode=2)
+
+# Saliva
+temp = parafac4microbiome::vanderPloeg2024$saliva
+temp$data = temp$data[mask,,]
+temp$mode1 = temp$mode1[mask,]
+processedSaliva = processDataCube(temp, sparsityThreshold=0.50, considerGroups=TRUE, groupVariable="RFgroup", CLR=TRUE, centerMode=1, scaleMode=2)
+
+# Metabolomics stays the same
+processedMetabolomics = parafac4microbiome::vanderPloeg2024$metabolomics
+```
+
+```{r prep data}
+datasets = list(processedTongue$data, processedLowling$data, processedLowinter$data, processedUpling$data, processedUpinter$data, processedSaliva$data, processedMetabolomics$data)
+modes = list(c(1,2,3),c(1,4,5),c(1,6,7),c(1,8,9),c(1,10,11),c(1,12,13),c(1,14,15))
+```
+
+```{r acmtf model selection}
+# CV_ACMTF = modelSelection(datasets, modes, method="L-BFGS", numCores=10)
+CV_ACMTF = readRDS("./TIFN2_CV_ACMTF.RDS")
+CV_ACMTF$plots$overview
+```
+
+```{r acmtf put into Z}
+Z = setupCMTFdata(datasets,modes,normalize=TRUE)
+```
+
+```{r acmtf cv}
+# cv_acmtf = CMTFtoolbox::investigateFMS(datasets, modes, 1, method="L-BFGS")
+# 
+# saveRDS(cv_acmtf, "./cv_acmtf.RDS")
+cv_acmtf = readRDS("./TIFN2_CV_ACMTF.RDS")
+cv_acmtf$plots$overview
+```
+
+```{r fit acmtf}
+# acmtf_model = CMTFtoolbox::acmtf_opt(Z, 3, nstart = 100, method="L-BFGS", numCores=10)
+# 
+# saveRDS(acmtf_model, "./acmtf_model.RDS")
+acmtf_model = readRDS("./acmtf_model.RDS")
+```
+
+```{r test the model}
+testMetadata2(acmtf_model, processedTongue$mode1)
+p.adjust(c(0.1121, 0.2480, 0.0792, 0.2537, 0.002), "BH")
+
+testMetadata(acmtf_model, processedTongue, 1)
+testMetadata(acmtf_model, processedTongue, 2)
+testMetadata(acmtf_model, processedTongue, 3)
+
+temp = transformPARAFACloadings(acmtf_model$Fac, 1)
+df = processedTongue$mode1 %>% left_join(rf_data %>% filter(day==14)) %>% left_join(age_gender) %>% mutate(Component_1 = temp[,1], Component_2 = temp[,2], Component_3 = temp[,3])
+summary(lm(age ~ Component_1 + Component_2 + Component_3, data=df))
+# summary(lm(Area_delta_R30 ~ Component_1 + Component_2 + Component_3, data=df))
+```
+
+```{r plot the lambda matrix}
+lambda = abs(acmtf_model$Fac[[16]])
+colnames(lambda) = paste0("C", 1:3)
+
+lambda %>%
+  as_tibble() %>%
+  mutate(block=c("tongue", "lowling", "lowinter", "upling", "upinter", "saliva", "metab")) %>%
+  mutate(block=factor(block, levels=c("tongue", "lowling", "lowinter", "upling", "upinter", "saliva", "metab"))) %>%
+  pivot_longer(-block) %>%
+  ggplot(aes(x=as.factor(name),y=value,fill=as.factor(block))) +
+  geom_bar(stat="identity",position=position_dodge(),col="black") +
+  xlab("ACMTF component number") +
+  ylab(expression(lambda)) +
+  scale_x_discrete(labels=1:3) +
+  scale_fill_manual(name="Dataset",values = hue_pal()(7),labels=c("Tongue", "Lower jaw, lingual", "Lower jaw, interproximal", "Upper jaw, lingual", "Upper jaw, interproximal", "Salivary microbiome", "Salivary metabolome")) +
+  theme(legend.position="top")
+```
+
+```{r acmtf comp 2 feature loadings}
+# Component 2 is interpretable as being related to age
+# it is mainly described by tongue + metab
+
+temp = list()
+temp$Fac = acmtf_model$Fac[c(1,2,3)]
+testFeatures(temp, processedTongue, 2, "age")
+a = plotFeatures(processedTongue$mode2, temp, 2, flip=FALSE) + scale_fill_manual(values=phylum_colors[-c(5,6,7)])
+
+temp = list()
+temp$Fac = acmtf_model$Fac[c(1,4,5)]
+testFeatures(temp, processedLowling, 2, "age")
+b = plotFeatures(processedLowling$mode2, temp, 2, flip=FALSE) + scale_fill_manual(values=phylum_colors[-7])
+
+temp = list()
+temp$Fac = acmtf_model$Fac[c(1,6,7)]
+testFeatures(temp, processedLowinter, 2, "age")
+c = plotFeatures(processedLowinter$mode2, temp, 2, flip=FALSE)
+
+temp = list()
+temp$Fac = acmtf_model$Fac[c(1,8,9)]
+testFeatures(temp, processedUpling, 2, "age")
+d = plotFeatures(processedUpling$mode2, temp, 2, flip=FALSE)
+
+temp = list()
+temp$Fac = acmtf_model$Fac[c(1,10,11)]
+testFeatures(temp, processedUpinter, 2, "age")
+e = plotFeatures(processedUpinter$mode2, temp, 2, flip=FALSE)
+
+temp = list()
+temp$Fac = acmtf_model$Fac[c(1,12,13)]
+testFeatures(temp, processedSaliva, 2, "age") # flip
+f = plotFeatures(processedSaliva$mode2, temp, 2, flip=TRUE) + scale_fill_manual(values=phylum_colors[-c(3,7)])
+
+temp = list()
+temp$Fac = acmtf_model$Fac[c(1,14,15)]
+testFeatures(temp, processedMetabolomics, 2, "age")
+
+# Metab
+df = processedMetabolomics$mode2 %>% mutate(Component_2 = acmtf_model$Fac[[14]][,2]) %>% arrange(Component_2) %>% mutate(index=1:nrow(.))
+df = rbind(df %>% head(n=10), df %>% tail(n=10))
+
+g=df %>%
+  ggplot(aes(x=Component_2,y=as.factor(index),fill=as.factor(Type))) +
+  geom_bar(stat="identity", col="black") +
+  scale_y_discrete(label=df$Name) +
+  xlab("Loading") +
+  ylab("") +
+  guides(fill=guide_legend(title="Class")) +
+  theme(text=element_text(size=16), legend.position="none")
+
+g2 = df %>%
+  ggplot(aes(x = Component_2, y = as.factor(index),
+             fill = as.factor(Type),
+             pattern = as.factor(Type))) +
+  geom_bar_pattern(stat = "identity",
+                   colour = "black",
+                   pattern = "stripe",
+                   pattern_fill = "black",
+                   pattern_density = 0.2,
+                   pattern_spacing = 0.05,
+                   pattern_angle = 45,
+                   pattern_size = 0.2) +
+  scale_y_discrete(labels = df$Name) +
+  xlab("Loading") +
+  ylab("") +
+  guides(fill = guide_legend(title = "Class"),
+         pattern = "none") +
+  theme(text = element_text(size = 16),
+        legend.position = "top")
+
+ggarrange(a,b,c,d,e,f,g, nrow=4, ncol=2)
+
+ggarrange(a,b,f,g)
+```
+
+```{r acmtf comp 2 time loadings}
+a = processedTongue$mode3 %>%
+  mutate(Comp = acmtf_model$Fac[[3]][,2], day=c(-14,0,2,5,9,14,21)) %>%
+  select(-visit,-status) %>%
+  pivot_longer(-day) %>%
+  ggplot(aes(x=day,y=value)) +
+  annotate(geom = "rect", xmin = 0, xmax = 14, ymin = -Inf, ymax = Inf, fill = "red", colour = "black", alpha=0.25) +
+  geom_line() +
+  geom_point() +
+  theme(legend.position="none") +
+  xlab("Time point [days]") +
+  ylab("Loading") +
+  ylim(0,1)
+  
+
+b = processedLowling$mode3 %>%
+  mutate(Comp = acmtf_model$Fac[[5]][,2], day=c(-14,0,2,5,9,14,21)) %>%
+  select(-visit,-status) %>%
+  pivot_longer(-day) %>%
+  ggplot(aes(x=day,y=value)) +
+  annotate(geom = "rect", xmin = 0, xmax = 14, ymin = -Inf, ymax = Inf, fill = "red", colour = "black", alpha=0.25) +
+  geom_line() +
+  geom_point() +
+  theme(legend.position="none") +
+  xlab("Time point [days]") +
+  ylab("Loading") +
+  ylim(0,1)
+  
+
+c = processedLowinter$mode3 %>%
+  mutate(Component_1 = acmtf_model$Fac[[7]][,2], day=c(-14,0,2,5,9,14,21)) %>%
+  select(-visit,-status) %>%
+  pivot_longer(-day) %>%
+  ggplot(aes(x=day,y=value)) +
+  annotate(geom = "rect", xmin = 0, xmax = 14, ymin = -Inf, ymax = Inf, fill = "red", colour = "black", alpha=0.25) +
+  geom_line() +
+  geom_point() +
+  theme(legend.position="none") +
+  xlab("Time point [days]") +
+  ylab("Loading") +
+  ylim(0,1)
+
+d = processedUpling$mode3 %>%
+  mutate(Component_1 = acmtf_model$Fac[[9]][,2], day=c(-14,0,2,5,9,14,21)) %>%
+  ggplot(aes(x=day,y=Component_1)) +
+  annotate(geom = "rect", xmin = 0, xmax = 14, ymin = -Inf, ymax = Inf, fill = "red", colour = "black", alpha=0.25) +
+  geom_line() +
+  geom_point() +
+  theme(legend.position="none") +
+  xlab("Time point [days]") +
+  ylab("Loading") +
+  ylim(0,1)
+
+e = processedUpinter$mode3 %>%
+  mutate(Component_1 = acmtf_model$Fac[[11]][,2], day=c(-14,0,2,5,9,14,21)) %>%
+  ggplot(aes(x=day,y=Component_1)) +
+  annotate(geom = "rect", xmin = 0, xmax = 14, ymin = -Inf, ymax = Inf, fill = "red", colour = "black", alpha=0.25) +
+  geom_line() +
+  geom_point() +
+  theme(legend.position="none") +
+  xlab("Time point [days]") +
+  ylab("Loading") +
+  ylim(0,1)
+
+f = processedSaliva$mode3 %>%
+  mutate(Component_1 = -1*acmtf_model$Fac[[13]][,2], day=c(-14,0,2,5,9,14,21)) %>%
+  ggplot(aes(x=day,y=Component_1)) +
+  annotate(geom = "rect", xmin = 0, xmax = 14, ymin = -Inf, ymax = Inf, fill = "red", colour = "black", alpha=0.25) +
+  geom_line() +
+  geom_point() +
+  theme(legend.position="none") +
+  xlab("Time point [days]") +
+  ylab("Loading") +
+  ylim(0,1)
+
+g = processedMetabolomics$mode3 %>%
+  mutate(Component_1 = acmtf_model$Fac[[15]][,2], day=c(0,2,5,9,14)) %>%
+  ggplot(aes(x=day,y=Component_1)) +
+  annotate(geom = "rect", xmin = 0, xmax = 14, ymin = -Inf, ymax = Inf, fill = "red", colour = "black", alpha=0.25) +
+  geom_line() +
+  geom_point() +
+  theme(legend.position="none") +
+  xlab("Time point [days]") +
+  ylab("Loading") +
+  ylim(0,1)
+
+ggarrange(a,b,c,d,e,f,g, nrow=4, ncol=2)
+
+ggarrange(a,b,f,g)
+```
+
+```{r acmtf comp 3 feature loadings}
+# Component 2 is interpretable as being related to age
+# it is mainly described by tongue + metab
+
+temp = list()
+temp$Fac = acmtf_model$Fac[c(1,2,3)]
+testFeatures(temp, processedTongue, 3, "age")
+a = plotFeatures(processedTongue$mode2, temp, 3, flip=FALSE) + scale_fill_manual(values=phylum_colors[-c(3,5,6,7)])
+
+temp = list()
+temp$Fac = acmtf_model$Fac[c(1,4,5)]
+testFeatures(temp, processedLowling, 3, "age")
+b = plotFeatures(processedLowling$mode2, temp, 3, flip=FALSE) + scale_fill_manual(values=phylum_colors[-c(3,7)])
+
+temp = list()
+temp$Fac = acmtf_model$Fac[c(1,6,7)]
+testFeatures(temp, processedLowinter, 3, "age") # flip
+c = plotFeatures(processedLowinter$mode2, temp, 3, flip=TRUE) + scale_fill_manual(values=phylum_colors[-c(3,7)])
+
+temp = list()
+temp$Fac = acmtf_model$Fac[c(1,8,9)]
+testFeatures(temp, processedUpling, 3, "age") # cor says flip, but lambda is negative -> no flip
+d = plotFeatures(processedUpling$mode2, temp, 3, flip=FALSE) + scale_fill_manual(values=phylum_colors[-c(3,7)])
+
+temp = list()
+temp$Fac = acmtf_model$Fac[c(1,10,11)]
+testFeatures(temp, processedUpinter, 3, "age")
+e = plotFeatures(processedUpinter$mode2, temp, 3, flip=FALSE) + scale_fill_manual(values=phylum_colors[-c(3,7)])
+
+temp = list()
+temp$Fac = acmtf_model$Fac[c(1,12,13)]
+testFeatures(temp, processedSaliva, 3, "age") # flip
+f = plotFeatures(processedSaliva$mode2, temp, 3, flip=TRUE) + scale_fill_manual(values=phylum_colors[-c(3,7)])
+
+temp = list()
+temp$Fac = acmtf_model$Fac[c(1,14,15)]
+testFeatures(temp, processedMetabolomics, 3, "age") # flip
+
+# Metab
+df = processedMetabolomics$mode2 %>% mutate(Component_2 = -1*acmtf_model$Fac[[14]][,3]) %>% arrange(Component_2) %>% mutate(index=1:nrow(.))
+df = rbind(df %>% head(n=10), df %>% tail(n=10))
+
+g=df %>%
+  ggplot(aes(x=Component_2,y=as.factor(index),fill=as.factor(Type))) +
+  geom_bar(stat="identity", col="black") +
+  scale_y_discrete(label=df$Name) +
+  xlab("Loading") +
+  ylab("") +
+  guides(fill=guide_legend(title="Class")) +
+  theme(text=element_text(size=16), legend.position="none")
+
+g2 = df %>%
+  ggplot(aes(x = Component_2, y = as.factor(index),
+             fill = as.factor(Type),
+             pattern = as.factor(Type))) +
+  geom_bar_pattern(stat = "identity",
+                   colour = "black",
+                   pattern = "stripe",
+                   pattern_fill = "black",
+                   pattern_density = 0.2,
+                   pattern_spacing = 0.05,
+                   pattern_angle = 45,
+                   pattern_size = 0.2) +
+  scale_y_discrete(labels = df$Name) +
+  xlab("Loading") +
+  ylab("") +
+  guides(fill = guide_legend(title = "Class"),
+         pattern = "none") +
+  theme(text = element_text(size = 16),
+        legend.position = "top")
+
+ggarrange(a,b,c,d,e,f,g, nrow=4, ncol=2)
+
+ggarrange(a,b,f,g)
+```
+
+```{r acmtf comp 2 time loadings}
+a = processedTongue$mode3 %>%
+  mutate(Comp = acmtf_model$Fac[[3]][,3], day=c(-14,0,2,5,9,14,21)) %>%
+  select(-visit,-status) %>%
+  pivot_longer(-day) %>%
+  ggplot(aes(x=day,y=value)) +
+  annotate(geom = "rect", xmin = 0, xmax = 14, ymin = -Inf, ymax = Inf, fill = "red", colour = "black", alpha=0.25) +
+  geom_line() +
+  geom_point() +
+  theme(legend.position="none") +
+  xlab("Time point [days]") +
+  ylab("Loading") +
+  ylim(0,1)
+  
+
+b = processedLowling$mode3 %>%
+  mutate(Comp = acmtf_model$Fac[[5]][,3], day=c(-14,0,2,5,9,14,21)) %>%
+  select(-visit,-status) %>%
+  pivot_longer(-day) %>%
+  ggplot(aes(x=day,y=value)) +
+  annotate(geom = "rect", xmin = 0, xmax = 14, ymin = -Inf, ymax = Inf, fill = "red", colour = "black", alpha=0.25) +
+  geom_line() +
+  geom_point() +
+  theme(legend.position="none") +
+  xlab("Time point [days]") +
+  ylab("Loading") +
+  ylim(0,1)
+  
+
+c = processedLowinter$mode3 %>%
+  mutate(Component_1 = -1*acmtf_model$Fac[[7]][,3], day=c(-14,0,2,5,9,14,21)) %>%
+  select(-visit,-status) %>%
+  pivot_longer(-day) %>%
+  ggplot(aes(x=day,y=value)) +
+  annotate(geom = "rect", xmin = 0, xmax = 14, ymin = -Inf, ymax = Inf, fill = "red", colour = "black", alpha=0.25) +
+  geom_line() +
+  geom_point() +
+  theme(legend.position="none") +
+  xlab("Time point [days]") +
+  ylab("Loading") +
+  ylim(0,1)
+
+d = processedUpling$mode3 %>%
+  mutate(Component_1 = -1*acmtf_model$Fac[[9]][,3], day=c(-14,0,2,5,9,14,21)) %>%
+  ggplot(aes(x=day,y=Component_1)) +
+  annotate(geom = "rect", xmin = 0, xmax = 14, ymin = -Inf, ymax = Inf, fill = "red", colour = "black", alpha=0.25) +
+  geom_line() +
+  geom_point() +
+  theme(legend.position="none") +
+  xlab("Time point [days]") +
+  ylab("Loading") +
+  ylim(0,1)
+
+e = processedUpinter$mode3 %>%
+  mutate(Component_1 = acmtf_model$Fac[[11]][,3], day=c(-14,0,2,5,9,14,21)) %>%
+  ggplot(aes(x=day,y=Component_1)) +
+  annotate(geom = "rect", xmin = 0, xmax = 14, ymin = -Inf, ymax = Inf, fill = "red", colour = "black", alpha=0.25) +
+  geom_line() +
+  geom_point() +
+  theme(legend.position="none") +
+  xlab("Time point [days]") +
+  ylab("Loading") +
+  ylim(0,1)
+
+f = processedSaliva$mode3 %>%
+  mutate(Component_1 = -1*acmtf_model$Fac[[13]][,3], day=c(-14,0,2,5,9,14,21)) %>%
+  ggplot(aes(x=day,y=Component_1)) +
+  annotate(geom = "rect", xmin = 0, xmax = 14, ymin = -Inf, ymax = Inf, fill = "red", colour = "black", alpha=0.25) +
+  geom_line() +
+  geom_point() +
+  theme(legend.position="none") +
+  xlab("Time point [days]") +
+  ylab("Loading") +
+  ylim(-1,1)
+
+g = processedMetabolomics$mode3 %>%
+  mutate(Component_1 = -1*acmtf_model$Fac[[15]][,3], day=c(0,2,5,9,14)) %>%
+  ggplot(aes(x=day,y=Component_1)) +
+  annotate(geom = "rect", xmin = 0, xmax = 14, ymin = -Inf, ymax = Inf, fill = "red", colour = "black", alpha=0.25) +
+  geom_line() +
+  geom_point() +
+  theme(legend.position="none") +
+  xlab("Time point [days]") +
+  ylab("Loading") +
+  ylim(0,1)
+
+ggarrange(a,b,c,d,e,f,g, nrow=4, ncol=2)
+
+ggarrange(a,b,f,g)
+```
+
+# ACMTF-R
+
+```{r prepare y}
+Y = processedTongue$mode1 %>% left_join(rf_data %>% select(subject,Area_delta_R30,day) %>% filter(day==14)) %>% select(Area_delta_R30) %>% pull()
+Ycnt = Y - mean(Y)
+Ynorm = Ycnt / norm(Ycnt, "2")
+```
+```{r model selection}
+# modelSelection90 = readRDS("./TIFN2_CV_ACMTF_0.9.RDS") # 2 comps, using FMS + DG
+# modelSelection85 = readRDS("./TIFN2_CV_ACMTF_0.85.RDS") # 1 comp already
+# modelSelection80 = readRDS("./TIFN2_CV_ACMTF_0.8.RDS") # 1 comp
+# modelSelection50 = readRDS("./TIFN2_CV_ACMTF_0.5.RDS") # 1 comp
+# modelSelection = readRDS("./TIFN2_CV_ACMTF_0.25.RDS") # 1 comp, no longer stable
+
+# ggarrange(modelSelection90$plots$FMS_random, modelSelection90$plots$FMS_CV, modelSelection90$plots$RMSECV,
+#           modelSelection85$plots$FMS_random, modelSelection85$plots$FMS_CV, modelSelection85$plots$RMSECV,
+#           modelSelection80$plots$FMS_random, modelSelection80$plots$FMS_CV, modelSelection80$plots$RMSECV,
+#           modelSelection50$plots$FMS_random, modelSelection50$plots$FMS_CV, modelSelection50$plots$RMSECV, nrow=4, ncol=3, common.legend=TRUE)
+```
+
+```{r load models}
+acmtf_model = readRDS("./amctf_model.RDS")
+acmtfr_model90 = readRDS("./TIFN2_ACMTFR_model_0.9.RDS")
+acmtfr_model80 = readRDS("./TIFN2_ACMTFR_model_0.8.RDS")
+acmtfr_model50 = readRDS("./TIFN2_ACMTFR_model_0.5.RDS")
+```
+
+```{r acmtfr lambda matrices}
+lambda = abs(acmtf_model$Fac[[16]])
+colnames(lambda) = paste0("C", 1:3)
+
+a = lambda %>%
+  as_tibble() %>%
+  mutate(block=c("tongue", "lowling", "lowinter", "upling", "upinter", "saliva", "metab")) %>%
+  mutate(block=factor(block, levels=c("tongue", "lowling", "lowinter", "upling", "upinter", "saliva", "metab"))) %>%
+  pivot_longer(-block) %>%
+  ggplot(aes(x=as.factor(name),y=value,fill=as.factor(block))) +
+  geom_bar(stat="identity",position=position_dodge(),col="black") +
+  xlab("ACMTF-R component number") +
+  ylab(expression(lambda)) +
+  scale_x_discrete(labels=1:3) +
+  guides(fill=guide_legend(title="Dataset"))
+
+lambda = abs(acmtfr_model90$Fac[[16]])
+colnames(lambda) = paste0("C", 1:2)
+
+b = lambda %>%
+  as_tibble() %>%
+  mutate(block=c("tongue", "lowling", "lowinter", "upling", "upinter", "saliva", "metab")) %>%
+  mutate(block=factor(block, levels=c("tongue", "lowling", "lowinter", "upling", "upinter", "saliva", "metab"))) %>%
+  pivot_longer(-block) %>%
+  ggplot(aes(x=as.factor(name),y=value,fill=as.factor(block))) +
+  geom_bar(stat="identity",position=position_dodge(),col="black") +
+  xlab("ACMTF-R component number") +
+  ylab(expression(lambda)) +
+  scale_x_discrete(labels=1:3) +
+  guides(fill=guide_legend(title="Dataset"))
+
+lambda = abs(acmtfr_model80$Fac[[16]])
+colnames(lambda) = paste0("C", 1)
+
+c = lambda %>%
+  as_tibble() %>%
+  mutate(block=c("tongue", "lowling", "lowinter", "upling", "upinter", "saliva", "metab")) %>%
+  mutate(block=factor(block, levels=c("tongue", "lowling", "lowinter", "upling", "upinter", "saliva", "metab"))) %>%
+  pivot_longer(-block) %>%
+  ggplot(aes(x=as.factor(name),y=value,fill=as.factor(block))) +
+  geom_bar(stat="identity",position=position_dodge(),col="black") +
+  xlab("ACMTF-R component number") +
+  ylab(expression(lambda)) +
+  scale_x_discrete(labels=1:3) +
+  scale_fill_manual(name="Dataset",values = hue_pal()(7),labels=c("Tongue", "Lower jaw, lingual", "Lower jaw, interproximal", "Upper jaw, lingual", "Upper jaw, interproximal", "Salivary microbiome", "Salivary metabolome")) +
+  theme(legend.position="top")
+
+lambda = abs(acmtfr_model50$Fac[[16]])
+colnames(lambda) = paste0("C", 1)
+
+d = lambda %>%
+  as_tibble() %>%
+  mutate(block=c("tongue", "lowling", "lowinter", "upling", "upinter", "saliva", "metab")) %>%
+  mutate(block=factor(block, levels=c("tongue", "lowling", "lowinter", "upling", "upinter", "saliva", "metab"))) %>%
+  pivot_longer(-block) %>%
+  ggplot(aes(x=as.factor(name),y=value,fill=as.factor(block))) +
+  geom_bar(stat="identity",position=position_dodge(),col="black") +
+  xlab("ACMTF-R component number") +
+  ylab(expression(lambda)) +
+  scale_x_discrete(labels=1:3) +
+  guides(fill=guide_legend(title="Dataset"))
+
+ggarrange(a,b,c,d, common.legend=TRUE)
+```
+
+```{r test the model}
+testMetadata2(acmtf_model, processedTongue$mode1)
+testMetadata2(acmtfr_model90, processedTongue$mode1)
+testMetadata2(acmtfr_model80, processedTongue$mode1)
+testMetadata2(acmtfr_model50, processedTongue$mode1)
+
+uncorrectedP = matrix(c(0.1139, 0.2606, 0.0802, 0.2463, 0.0004, 0.0208, 0.2478, 0.0033, 0.1860, 0.0005, 0.2697, 0.0752, 0.0001, 0.0546, 0.7254, 0.1469, 0.0611, 0.0001, 0.0656, 0.6581), nrow=5, ncol=4)
+
+apply(uncorrectedP, 2, FUN=function(x){p.adjust(x,"BH")}) # BH per dataset
+
+temp = transformPARAFACloadings(acmtf_model$Fac, 1)
+df = processedTongue$mode1 %>% left_join(rf_data %>% filter(day==14)) %>% left_join(age_gender) %>% mutate(Component_1 = temp[,1], Component_2 = temp[,2], Component_3 = temp[,3])
+summary(lm(age ~ Component_1 + Component_2 + Component_3, data=df))
+
+temp = transformPARAFACloadings(acmtfr_model90$Fac, 1)
+df = processedTongue$mode1 %>% left_join(rf_data %>% filter(day==14)) %>% left_join(age_gender) %>% mutate(Component_1 = temp[,1], Component_2 = temp[,2])
+summary(lm(age ~ Component_1 + Component_2, data=df))
+summary(lm(plaquepercent ~ Component_1 + Component_2, data=df))
+summary(lm(Area_delta_R30 ~ Component_1 + Component_2, data=df))
+
+temp = transformPARAFACloadings(acmtfr_model80$Fac, 1)
+df = processedTongue$mode1 %>% left_join(rf_data %>% filter(day==14)) %>% left_join(age_gender) %>% mutate(Component_1 = temp[,1])
+summary(lm(Area_delta_R30 ~ Component_1, data=df))
+
+temp = transformPARAFACloadings(acmtfr_model50$Fac, 1)
+df = processedTongue$mode1 %>% left_join(rf_data %>% filter(day==14)) %>% left_join(age_gender) %>% mutate(Component_1 = temp[,1])
+summary(lm(Area_delta_R30 ~ Component_1, data=df))
+
+```
+
+```{r subject mode}
+
+```
+
+```{r feature mode}
+# Pi = 0.8
+temp = list()
+temp$Fac = acmtfr_model80$Fac[c(1,2,3)]
+testFeatures(temp, processedTongue, 1, "Area_delta_R30") # flip
+a = plotFeatures(processedTongue$mode2, temp, 1, flip=TRUE) + scale_fill_manual(values=phylum_colors[-c(3,7)])
+
+temp = list()
+temp$Fac = acmtfr_model80$Fac[c(1,4,5)]
+testFeatures(temp, processedLowling, 1, "Area_delta_R30") # flip
+b = plotFeatures(processedLowling$mode2, temp, 1, flip=TRUE) + scale_fill_manual(values=phylum_colors[-7])
+
+temp = list()
+temp$Fac = acmtfr_model80$Fac[c(1,8,9)]
+testFeatures(temp, processedUpling, 1, "Area_delta_R30")
+c = plotFeatures(processedUpling$mode2, temp, 1, flip=FALSE) + scale_fill_manual(values=phylum_colors[-c(3,7)])
+
+temp = list()
+temp$Fac = acmtfr_model80$Fac[c(1,10,11)]
+testFeatures(temp, processedUpinter, 1, "Area_delta_R30") # flip
+d = plotFeatures(processedUpinter$mode2, temp, 1, flip=TRUE) + scale_fill_manual(values=phylum_colors[-c(3,7)])
+
+temp = list()
+temp$Fac = acmtfr_model80$Fac[c(1,12,13)]
+testFeatures(temp, processedSaliva, 1, "Area_delta_R30") # flip
+e = plotFeatures(processedSaliva$mode2, temp, 1, flip=TRUE) + scale_fill_manual(values=phylum_colors[-c(3,7)])
+
+# Metab
+temp = list()
+temp$Fac = acmtfr_model80$Fac[c(1,14,15)]
+testFeatures(temp, processedMetabolomics, 1, "Area_delta_R30") # no flip
+
+df = processedMetabolomics$mode2 %>% mutate(Component_2 = acmtfr_model80$Fac[[14]][,1]) %>% arrange(Component_2) %>% mutate(index=1:nrow(.))
+df = rbind(df %>% head(n=10), df %>% tail(n=10))
+
+f = df %>%
+  ggplot(aes(x = Component_2, y = as.factor(index),
+             fill = as.factor(Type),
+             pattern = as.factor(Type))) +
+  geom_bar_pattern(stat = "identity",
+                   colour = "black",
+                   pattern = "stripe",
+                   pattern_fill = "black",
+                   pattern_density = 0.2,
+                   pattern_spacing = 0.05,
+                   pattern_angle = 45,
+                   pattern_size = 0.2) +
+  scale_y_discrete(labels = df$Name) +
+  xlab("Loading") +
+  ylab("") +
+  guides(fill = guide_legend(title = "Class"),
+         pattern = "none") +
+  theme(text = element_text(size = 16),
+        legend.position = "top")
+```
+
+```{r acmtfr time mode}
+a = processedTongue$mode3 %>%
+  mutate(Comp = acmtfr_model80$Fac[[3]][,1], day=c(-14,0,2,5,9,14,21)) %>%
+  select(-visit,-status) %>%
+  pivot_longer(-day) %>%
+  ggplot(aes(x=day,y=value)) +
+  annotate(geom = "rect", xmin = 0, xmax = 14, ymin = -Inf, ymax = Inf, fill = "red", colour = "black", alpha=0.25) +
+  geom_line() +
+  geom_point() +
+  theme(legend.position="none") +
+  xlab("Time point [days]") +
+  ylab("Loading") +
+  ylim(0,1)
+
+b = processedLowling$mode3 %>%
+  mutate(Component_1 = acmtfr_model80$Fac[[5]][,1], day=c(-14,0,2,5,9,14,21)) %>%
+  ggplot(aes(x=day,y=Component_1)) +
+  annotate(geom = "rect", xmin = 0, xmax = 14, ymin = -Inf, ymax = Inf, fill = "red", colour = "black", alpha=0.25) +
+  geom_line() +
+  geom_point() +
+  theme(legend.position="none") +
+  xlab("Time point [days]") +
+  ylab("Loading") +
+  ylim(0,1)
+
+c = processedUpling$mode3 %>%
+  mutate(Component_1 = -1*acmtfr_model80$Fac[[9]][,1], day=c(-14,0,2,5,9,14,21)) %>%
+  ggplot(aes(x=day,y=Component_1)) +
+  annotate(geom = "rect", xmin = 0, xmax = 14, ymin = -Inf, ymax = Inf, fill = "red", colour = "black", alpha=0.25) +
+  geom_line() +
+  geom_point() +
+  theme(legend.position="none") +
+  xlab("Time point [days]") +
+  ylab("Loading") +
+  ylim(0,1)
+
+d = processedUpinter$mode3 %>%
+  mutate(Component_1 = acmtfr_model80$Fac[[11]][,1], day=c(-14,0,2,5,9,14,21)) %>%
+  ggplot(aes(x=day,y=Component_1)) +
+  annotate(geom = "rect", xmin = 0, xmax = 14, ymin = -Inf, ymax = Inf, fill = "red", colour = "black", alpha=0.25) +
+  geom_line() +
+  geom_point() +
+  theme(legend.position="none") +
+  xlab("Time point [days]") +
+  ylab("Loading") +
+  ylim(0,1)
+  
+e = processedSaliva$mode3 %>%
+  mutate(Comp = acmtfr_model80$Fac[[13]][,1], day=c(-14,0,2,5,9,14,21)) %>%
+  select(-visit,-status) %>%
+  pivot_longer(-day) %>%
+  ggplot(aes(x=day,y=value)) +
+  annotate(geom = "rect", xmin = 0, xmax = 14, ymin = -Inf, ymax = Inf, fill = "red", colour = "black", alpha=0.25) +
+  geom_line() +
+  geom_point() +
+  theme(legend.position="none") +
+  xlab("Time point [days]") +
+  ylab("Loading") +
+  ylim(0,1)
+  
+f = processedMetabolomics$mode3 %>%
+  mutate(Comp = acmtfr_model80$Fac[[15]][,1], day=c(0,2,5,9,14)) %>%
+  select(-visit,-status) %>%
+  pivot_longer(-day) %>%
+  ggplot(aes(x=day,y=-1*value)) +
+  annotate(geom = "rect", xmin = 0, xmax = 14, ymin = -Inf, ymax = Inf, fill = "red", colour = "black", alpha=0.25) +
+  geom_line() +
+  geom_point() +
+  theme(legend.position="none") +
+  xlab("Time point [days]") +
+  ylab("Loading") +
+  ylim(0,1)
+  
+
+
+ggarrange(a,b,c,d,e, nrow=3, ncol=2)
+```
+
+```{r plot the ACMTF-R component}
+# Subject mode
+
+# 
+```

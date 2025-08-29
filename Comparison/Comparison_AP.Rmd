@@ -1,0 +1,377 @@
+---
+title: "Comparison"
+output: html_document
+date: "2025-07-01"
+---
+
+```{r setup}
+library(tidyverse)
+library(forcats)
+library(ggplot2)
+library(ggpubr)
+library(stringr)
+library(parafac4microbiome)
+library(NPLStoolbox)
+library(CMTFtoolbox)
+library(vegan)
+library(scales)
+library(ggrepel)
+```
+
+# Useful functions
+
+```{r functions}
+calculateTCC = function(vect1, vect2){
+  
+  vect1 = as.matrix(vect1)
+  vect2 = as.matrix(vect2)
+  FMS = abs(t(vect1) %*% vect2) / (norm(vect1, "F") * norm(vect2, "F"))
+  return(FMS)
+}
+```
+
+# AP
+
+## Load Age info
+
+```{r load age info}
+cytokines_meta_data = read.csv("../AP/input_deduplicated_metadata_RvdP.csv", sep=" ", header=FALSE) %>% as_tibble()
+colnames(cytokines_meta_data) = c("SubjectID", "Visit", "Gender", "Age", "Pain_noPain", "case_control")
+ageInfo = cytokines_meta_data %>% select(SubjectID, Age) %>% unique()
+```
+
+## Processing
+
+```{r pca processing}
+processedMicrobiome_pca = CMTFtoolbox::Georgiou2025$Tooth_microbiome
+
+# Remove samples due to low library size
+mask = rowSums(processedMicrobiome_pca$data) > 6500
+processedMicrobiome_pca$data = processedMicrobiome_pca$data[mask,]
+processedMicrobiome_pca$mode1 = processedMicrobiome_pca$mode1[mask,]
+
+# CLR transformation
+df = processedMicrobiome_pca$data + 1
+geomeans = pracma::geomean(as.matrix(df), dim=2)
+df_clr = log(sweep(df, 1, geomeans, FUN="/"))
+
+# Feature filtering
+sparsityThreshold = 0.5
+maskA = processedMicrobiome_pca$mode1$PainS_NopainA == "A"
+maskS = processedMicrobiome_pca$mode1$PainS_NopainA == "S"
+
+dfA = processedMicrobiome_pca$data[maskA,]
+dfS = processedMicrobiome_pca$data[maskS,]
+
+sparsityA = colSums(dfA == 0) / nrow(dfA)
+sparsityS = colSums(dfS == 0) / nrow(dfS)
+
+mask = (sparsityA <= sparsityThreshold) | (sparsityS <= sparsityThreshold)
+
+processedMicrobiome_pca$data = df_clr[,mask]
+processedMicrobiome_pca$mode2 = processedMicrobiome_pca$mode2[mask,]
+
+# Center and scale
+processedMicrobiome_pca$data = sweep(processedMicrobiome_pca$data, 2, colMeans(processedMicrobiome_pca$data), FUN="-")
+processedMicrobiome_pca$data = sweep(processedMicrobiome_pca$data, 2, apply(processedMicrobiome_pca$data, 2, sd), FUN="/")
+```
+
+```{r cp processing}
+# Case only subcohort
+processedCytokines_cp = CMTFtoolbox::Georgiou2025$Inflammatory_mediators
+
+mask = processedCytokines_cp$mode1$case_control == "case"
+processedCytokines_cp$data = processedCytokines_cp$data[mask,,]
+processedCytokines_cp$mode1 = processedCytokines_cp$mode1[mask,]
+
+# Also remove subject A11-8 due to being an outlier
+processedCytokines_cp$data = processedCytokines_cp$data[-25,,]
+processedCytokines_cp$mode1 = processedCytokines_cp$mode1[-25,]
+
+processedCytokines_cp$data = log(processedCytokines_cp$data + 0.005)
+processedCytokines_cp$data = multiwayCenter(processedCytokines_cp$data, 1)
+processedCytokines_cp$data = multiwayScale(processedCytokines_cp$data, 2)
+```
+
+```{r acmtf and acmtf-r processing}
+# Microbiome
+processedMicrobiome_acmtf = CMTFtoolbox::Georgiou2025$Tooth_microbiome
+
+# Remove samples due to low library size
+mask = rowSums(processedMicrobiome_acmtf$data) > 6500
+processedMicrobiome_acmtf$data = processedMicrobiome_acmtf$data[mask,]
+processedMicrobiome_acmtf$mode1 = processedMicrobiome_acmtf$mode1[mask,]
+
+# Remove duplicate samples
+mask = !(processedMicrobiome_acmtf$mode1$SampleID %in% c("A11-8 36", "A11-10 17", "A11-15 17"))
+processedMicrobiome_acmtf$data = processedMicrobiome_acmtf$data[mask,]
+processedMicrobiome_acmtf$mode1 = processedMicrobiome_acmtf$mode1[mask,]
+
+# Also remove subject A11-8 due to being an outlier
+processedMicrobiome_acmtf$data = processedMicrobiome_acmtf$data[-23,,]
+processedMicrobiome_acmtf$mode1 = processedMicrobiome_acmtf$mode1[-23,]
+
+# CLR transformation
+df = processedMicrobiome_acmtf$data + 1
+geomeans = pracma::geomean(as.matrix(df), dim=2)
+df_clr = log(sweep(df, 1, geomeans, FUN="/"))
+
+# Feature filtering
+sparsityThreshold = 0.5
+maskA = processedMicrobiome_acmtf$mode1$PainS_NopainA == "A"
+maskS = processedMicrobiome_acmtf$mode1$PainS_NopainA == "S"
+
+dfA = processedMicrobiome_acmtf$data[maskA,]
+dfS = processedMicrobiome_acmtf$data[maskS,]
+
+sparsityA = colSums(dfA == 0) / nrow(dfA)
+sparsityS = colSums(dfS == 0) / nrow(dfS)
+
+mask = (sparsityA <= sparsityThreshold) | (sparsityS <= sparsityThreshold)
+
+processedMicrobiome_acmtf$data = df_clr[,mask]
+processedMicrobiome_acmtf$mode2 = processedMicrobiome_acmtf$mode2[mask,]
+
+# Center and scale
+processedMicrobiome_acmtf$data = sweep(processedMicrobiome_acmtf$data, 2, colMeans(processedMicrobiome_acmtf$data), FUN="-")
+processedMicrobiome_acmtf$data = sweep(processedMicrobiome_acmtf$data, 2, apply(processedMicrobiome_acmtf$data, 2, sd), FUN="/")
+
+# Cytokines
+processedCytokines_acmtf = CMTFtoolbox::Georgiou2025$Inflammatory_mediators
+
+# Select only case subjects
+mask = processedCytokines_acmtf$mode1$case_control == "case"
+processedCytokines_acmtf$data = processedCytokines_acmtf$data[mask,,]
+processedCytokines_acmtf$mode1 = processedCytokines_acmtf$mode1[mask,]
+
+# Select only samples with corresponding microbiome data
+mask = processedCytokines_acmtf$mode1$SubjectID %in% processedMicrobiome_acmtf$mode1$SubjectID
+processedCytokines_acmtf$data = processedCytokines_acmtf$data[mask,,]
+processedCytokines_acmtf$mode1 = processedCytokines_acmtf$mode1[mask,]
+
+processedCytokines_acmtf$data = log(processedCytokines_acmtf$data + 0.005)
+processedCytokines_acmtf$data = multiwayCenter(processedCytokines_acmtf$data, 1)
+processedCytokines_acmtf$data = multiwayScale(processedCytokines_acmtf$data, 2)
+```
+
+## Import models
+
+```{r load models}
+svd_result = readRDS("../AP/microbiome_pca.RDS")
+PCA_model = list()
+PCA_model$Fac = list()
+PCA_model$Fac[[1]] = svd_result$u %*% diag(svd_result$d[1:3])
+PCA_model$Fac[[2]] = svd_result$v
+Xhat = PCA_model$Fac[[1]] %*% t(PCA_model$Fac[[2]])
+varExp = round(sum(Xhat^2) / sum(processedMicrobiome_pca$data^2) * 100, 2)
+
+pls_model = readRDS("../AP/pls_model.RDS")
+
+cp_model = readRDS("../AP/cp_cytokines_case.RDS")
+npls_model = readRDS("../AP/NPLS_cyto_case.RDS")
+
+acmtf_model = readRDS("../AP/acmtf_model.RDS")
+acmtfr_model = readRDS("../AP/AP_ACMTFR_model_90.RDS")
+```
+
+## Test against metadata
+
+```{r metadata test table for mode A}
+testMetadata = function(model, comp, metadata){
+
+  transformedSubjectLoadings = model$Fac[[1]][,comp]
+  transformedSubjectLoadings = transformedSubjectLoadings / norm(transformedSubjectLoadings, "2")
+  
+  metadata = metadata$mode1 %>% left_join(ageInfo, by="SubjectID") %>% mutate(Gender=as.numeric(as.factor(Gender), PainS_NopainA=as.numeric(as.factor(PainS_NopainA))))
+  result = lm(transformedSubjectLoadings ~ Gender + Age + PainS_NopainA, data=metadata)
+  
+  # Extract coefficients and confidence intervals
+  coef_estimates <- summary(result)$coefficients
+  conf_intervals <- confint(result)
+  
+  # Remove intercept
+  coef_estimates <- coef_estimates[rownames(coef_estimates) != "(Intercept)", ]
+  conf_intervals <- conf_intervals[rownames(conf_intervals) != "(Intercept)", ]
+  
+  # Combine into a clean data frame
+  summary_table <- data.frame(
+    Term     = rownames(coef_estimates),
+    Estimate = coef_estimates[, "Estimate"] * 1e3,
+    CI       = paste0(
+                 conf_intervals[, 1], " – ",
+                 conf_intervals[, 2]
+               ),
+    P_value  = coef_estimates[, "Pr(>|t|)"],
+    P_adjust = p.adjust(coef_estimates[, "Pr(>|t|)"], "BH"),
+    row.names = NULL
+  )
+  
+  return(summary_table)
+}
+
+
+
+testMetadata(PCA_model, 1, processedMicrobiome_pca)
+
+pls_model$Fac[[1]] = pls_model$scores
+testMetadata(pls_model, 1, processedMicrobiome_pca)
+
+testMetadata(cp_model, 1, processedCytokines_cp)
+testMetadata(npls_model, 1, processedCytokines_cp)
+
+testMetadata(acmtf_model, 1, processedCytokines_acmtf)
+
+testMetadata(acmtfr_model, 1, processedCytokines_acmtf)
+```
+
+## Comparison
+
+```{r compare models using FMS}
+plotlistFMS = list()
+plotlistA = list()
+plotlistB = list()
+plotlistC = list()
+iterator = 1
+midpoint = 0.50
+size = 4
+
+# Inflammatory mediators
+CPmeta = processedCytokines_cp
+NPLSmeta = processedCytokines_cp
+ACMTFmeta = processedCytokines_acmtf
+cp_model = cp_model
+npls_model = npls_model
+acmtf_mode = 2
+
+part1 = cbind(CPmeta$mode1, cp_model$Fac[[1]])
+colnames(part1) = c("SubjectID", "Gender", "case_control", "PainS_NopainA", paste0("CP (", 1:ncol(cp_model$Fac[[1]]), ")"))
+part2 = cbind(NPLSmeta$mode1, npls_model$Fac[[1]])
+colnames(part2) = c("SubjectID", "Gender", "case_control", "PainS_NopainA", paste0("NPLS (", 1:ncol(npls_model$Fac[[1]]), ")"))
+part3 = cbind(ACMTFmeta$mode1, acmtf_model$Fac[[1]], acmtfr_model$Fac[[1]])
+colnames(part3) = c("SubjectID", "Gender", "case_control", "PainS_NopainA", paste0("ACMTF (", 1:ncol(acmtf_model$Fac[[1]]), ")"), paste0("ACMTFR (", 1:ncol(acmtfr_model$Fac[[1]]), ")"))
+A = part1 %>% inner_join(part2) %>% inner_join(part3) %>% select(-SubjectID, -Gender, -case_control, -PainS_NopainA) %>% as.data.frame()
+
+part1 = cbind(CPmeta$mode2, cp_model$Fac[[2]], npls_model$Fac[[2]])
+colnames(part1) = c("Cytokine", paste0("CP (", 1:ncol(cp_model$Fac[[1]]), ")"), paste0("NPLS (", 1:ncol(npls_model$Fac[[1]]), ")"))
+part2 = cbind(ACMTFmeta$mode2, acmtf_model$Fac[[acmtf_mode]], acmtfr_model$Fac[[acmtf_mode]])
+colnames(part2) = c("Cytokine", paste0("ACMTF (", 1:ncol(acmtf_model$Fac[[1]]), ")"), paste0("ACMTF-R (", 1:ncol(acmtfr_model$Fac[[1]]), ")"))
+B = part1 %>% inner_join(part2) %>% select(-Cytokine) %>% as.data.frame()
+C = cbind(cp_model$Fac[[3]], npls_model$Fac[[3]], acmtf_model$Fac[[acmtf_mode+1]], acmtfr_model$Fac[[acmtf_mode+1]])
+
+TCC_A = matrix(NA, nrow=ncol(A), ncol=ncol(A))
+TCC_B = matrix(NA, nrow=ncol(B), ncol=ncol(B))
+TCC_C = matrix(NA, nrow=ncol(C), ncol=ncol(C))
+for(i in 1:ncol(B)){
+  for(j in 1:ncol(B)){
+    TCC_A[i,j] = calculateTCC(A[,i], A[,j])
+    TCC_B[i,j] = calculateTCC(B[,i], B[,j])
+    TCC_C[i,j] = calculateTCC(C[,i], C[,j])
+  }
+}
+
+labels = c(paste0("CP (", 1:ncol(cp_model$Fac[[1]]), ")"), paste0("NPLS (", 1:ncol(npls_model$Fac[[1]]), ")"), paste0("ACMTF (", 1:ncol(acmtf_model$Fac[[1]]), ")"), paste0("ACMTF-R (", 1:ncol(acmtfr_model$Fac[[1]]), ")"))
+
+FMS = (TCC_A * TCC_B * TCC_C)
+diag(FMS) = NA
+FMS[lower.tri(FMS)] = NA
+plotlistFMS[[iterator]] = FMS %>%
+  as_tibble() %>%
+  mutate(model = paste0("V", 1:ncol(A))) %>%
+  pivot_longer(-model) %>%
+  ggplot(aes(x=as.factor(model),y=as.factor(name),fill=value)) +
+  geom_tile(col="black") +
+  geom_text(aes(label = sprintf("%.2f", value)), size = size) +
+  scale_x_discrete(name="", labels=labels) +
+  scale_y_discrete(name="", labels=labels) +
+  scale_fill_gradient(name="FMS", low="#FFFFFF", high="#1B7837", na.value="black", limits=c(0,1.01)) +
+  theme(legend.position="na", axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1), text=element_text(size=16))
+
+combinedTCC = matrix(NA, nrow=nrow(TCC_A), ncol=ncol(TCC_A))
+combinedTCC[upper.tri(combinedTCC)] = TCC_A[upper.tri(TCC_A)]
+combinedTCC[lower.tri(combinedTCC)] = TCC_B[lower.tri(TCC_B)]
+plotlistA[[iterator]] = combinedTCC %>%
+  as_tibble() %>%
+  mutate(model = paste0("V", 1:ncol(A))) %>%
+  pivot_longer(-model) %>%
+  ggplot(aes(x=as.factor(model),y=as.factor(name),fill=value)) +
+  geom_tile(col="black") +
+  geom_text(aes(label = sprintf("%.2f", value)), size = size) +
+  scale_x_discrete(name="", labels=labels) +
+  scale_y_discrete(name="", labels=labels) +
+  scale_fill_gradient(name="TCC", low="#FFFFFF", high="#1B7837", na.value="black", limits=c(0,1.01)) +
+  theme(legend.position="na", axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1), text=element_text(size=16))
+
+iterator = iterator + 1
+
+# Tooth microbiome
+CPmeta = processedMicrobiome_pca
+NPLSmeta = processedMicrobiome_pca
+ACMTFmeta = processedMicrobiome_acmtf
+cp_model = PCA_model
+npls_model = pls_model
+acmtf_mode = 4
+
+part1 = cbind(CPmeta$mode1, cp_model$Fac[[1]])
+colnames(part1) = c("SubjectID", "SampleID", "Gender", "case_control", "PainS_NopainA", paste0("PCA (", 1:ncol(cp_model$Fac[[1]]), ")"))
+part2 = cbind(NPLSmeta$mode1, npls_model$Fac[[1]][,1])
+colnames(part2) = c("SubjectID", "SampleID", "Gender", "case_control", "PainS_NopainA", paste0("PLS (", 1:ncol(npls_model$Fac[[1]]), ")"))
+part3 = cbind(ACMTFmeta$mode1, acmtf_model$Fac[[1]], acmtfr_model$Fac[[1]])
+colnames(part3) = c("SubjectID", "SampleID", "Gender", "case_control", "PainS_NopainA", paste0("ACMTF (", 1:ncol(acmtf_model$Fac[[1]]), ")"), paste0("ACMTFR (", 1:ncol(acmtfr_model$Fac[[1]]), ")"))
+A = part1 %>% inner_join(part2) %>% inner_join(part3) %>% select(-SubjectID, -SampleID, -Gender, -case_control, -PainS_NopainA) %>% as.data.frame()
+
+part1 = cbind(CPmeta$mode2, cp_model$Fac[[2]])
+colnames(part1) = c("Kingdom", "Phylum", "Class", "Order", "Family", "Genus", "Species", "zOTU", paste0("PCA (", 1:ncol(cp_model$Fac[[1]]), ")"))
+part2 = cbind(NPLSmeta$mode2, pls_model$loadings[,1])
+colnames(part2) = c("Kingdom", "Phylum", "Class", "Order", "Family", "Genus", "Species", "zOTU", paste0("PLS (", 1:ncol(pls_model$Fac[[1]]), ")"))
+part3 = cbind(ACMTFmeta$mode2, acmtf_model$Fac[[acmtf_mode]], acmtfr_model$Fac[[acmtf_mode]])
+colnames(part3) = c("Kingdom", "Phylum", "Class", "Order", "Family", "Genus", "Species", "zOTU", paste0("ACMTF (", 1:ncol(acmtf_model$Fac[[1]]), ")"), paste0("ACMTF-R (", 1:ncol(acmtfr_model$Fac[[1]]), ")"))
+B = part1 %>% inner_join(part2) %>% inner_join(part3) %>% select(-Kingdom, -Phylum, -Class, -Order, -Family, -Genus, -Species, -zOTU) %>% as.data.frame()
+
+TCC_A = matrix(NA, nrow=ncol(A), ncol=ncol(A))
+TCC_B = matrix(NA, nrow=ncol(B), ncol=ncol(B))
+for(i in 1:ncol(B)){
+  for(j in 1:ncol(B)){
+    TCC_A[i,j] = calculateTCC(A[,i], A[,j])
+    TCC_B[i,j] = calculateTCC(B[,i], B[,j])
+  }
+}
+
+labels = c(paste0("PCA (", 1:ncol(cp_model$Fac[[1]]), ")"), paste0("PLS (", 1:ncol(npls_model$Fac[[1]]), ")"), paste0("ACMTF (", 1:ncol(acmtf_model$Fac[[1]]), ")"), paste0("ACMTF-R (", 1:ncol(acmtfr_model$Fac[[1]]), ")"))
+
+FMS = (TCC_A * TCC_B)
+diag(FMS) = NA
+FMS[lower.tri(FMS)] = NA
+plotlistFMS[[iterator]] = FMS %>%
+  as_tibble() %>%
+  mutate(model = paste0("V", 1:ncol(A))) %>%
+  pivot_longer(-model) %>%
+  ggplot(aes(x=as.factor(model),y=as.factor(name),fill=value)) +
+  geom_tile(col="black") +
+  geom_text(aes(label = sprintf("%.2f", value)), size = size) +
+  scale_x_discrete(name="", labels=labels) +
+  scale_y_discrete(name="", labels=labels) +
+  scale_fill_gradient(name="FMS", low="#FFFFFF", high="#1B7837", na.value="black", limits=c(0,1.01)) +
+  theme(legend.position="na", axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1), text=element_text(size=16))
+
+combinedTCC = matrix(NA, nrow=nrow(TCC_A), ncol=ncol(TCC_A))
+combinedTCC[upper.tri(combinedTCC)] = TCC_A[upper.tri(TCC_A)]
+combinedTCC[lower.tri(combinedTCC)] = TCC_B[lower.tri(TCC_B)]
+plotlistA[[iterator]] = combinedTCC %>%
+  as_tibble() %>%
+  mutate(model = paste0("V", 1:ncol(A))) %>%
+  pivot_longer(-model) %>%
+  ggplot(aes(x=as.factor(model),y=as.factor(name),fill=value)) +
+  geom_tile(col="black") +
+  geom_text(aes(label = sprintf("%.2f", value)), size = size) +
+  scale_x_discrete(name="", labels=labels) +
+  scale_y_discrete(name="", labels=labels) +
+  scale_fill_gradient(name="TCC", low="#FFFFFF", high="#1B7837", na.value="black", limits=c(0,1.01)) +
+  theme(legend.position="na", axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1), text=element_text(size=16))
+
+iterator = iterator + 1
+
+ggarrange(plotlistFMS[[1]], plotlistA[[1]], nrow=1, ncol=2)
+ggarrange(plotlistFMS[[2]], plotlistA[[2]], nrow=1, ncol=2)
+```
+
+

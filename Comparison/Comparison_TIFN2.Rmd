@@ -1,0 +1,1146 @@
+---
+title: "Comparison"
+output: html_document
+date: "2025-07-01"
+---
+
+```{r setup}
+library(tidyverse)
+library(forcats)
+library(ggplot2)
+library(ggpubr)
+library(stringr)
+library(parafac4microbiome)
+library(NPLStoolbox)
+library(CMTFtoolbox)
+library(vegan)
+library(scales)
+library(ggrepel)
+```
+
+# Useful functions
+
+```{r functions}
+calculateTCC = function(vect1, vect2){
+  
+  vect1 = as.matrix(vect1)
+  vect2 = as.matrix(vect2)
+  FMS = abs(t(vect1) %*% vect2) / (norm(vect1, "F") * norm(vect2, "F"))
+  return(FMS)
+}
+```
+
+# TIFN2
+
+## Import data
+
+```{r Import red fluorescence data}
+rf_data = read.csv("../TIFN2/RFdata.csv")
+colnames(rf_data) = c("subject", "id", "fotonr", "day", "group", "RFgroup", "MQH", "SPS(tm)", "Area_delta_R30", "Area_delta_Rmax", "Area_delta_R30_x_Rmax", "gingiva_mean_R_over_G", "gingiva_mean_R_over_G_upper_jaw", "gingiva_mean_R_over_G_lower_jaw")
+rf_data = rf_data %>% as_tibble()
+
+rf_data[rf_data$subject == "VSTPHZ", 1] = "VSTPH2"
+rf_data[rf_data$subject == "D2VZH0", 1] = "DZVZH0"
+rf_data[rf_data$subject == "DLODNN", 1] = "DLODDN"
+rf_data[rf_data$subject == "O3VQFX", 1] = "O3VQFQ"
+rf_data[rf_data$subject == "F80LGT", 1] = "F80LGF"
+rf_data[rf_data$subject == "26QQR0", 1] = "26QQrO"
+
+rf_data2 = read.csv("../TIFN2/red_fluorescence_data.csv") %>% as_tibble()
+rf_data2 = rf_data2[,c(2,4,181:192)]
+rf_data = rf_data %>% left_join(rf_data2)
+
+rf = rf_data %>% select(subject, RFgroup) %>% unique()
+```
+
+```{r Import subject metadata}
+age_gender = read.csv("../TIFN2/Ploeg_subjectMetadata.csv", sep=";")
+age_gender = age_gender[2:nrow(age_gender),2:ncol(age_gender)]
+age_gender = age_gender %>% as_tibble() %>% filter(onderzoeksgroep == 0) %>% select(naam, leeftijd, geslacht)
+colnames(age_gender) = c("subject", "age", "gender")
+
+# Correction for incorrect subject ids
+age_gender[age_gender$subject == "VSTPHZ", 1] = "VSTPH2"
+age_gender[age_gender$subject == "D2VZH0", 1] = "DZVZH0"
+age_gender[age_gender$subject == "DLODNN", 1] = "DLODDN"
+age_gender[age_gender$subject == "O3VQFX", 1] = "O3VQFQ"
+age_gender[age_gender$subject == "F80LGT", 1] = "F80LGF"
+age_gender[age_gender$subject == "26QQR0", 1] = "26QQrO"
+
+age_gender = age_gender %>% arrange(subject)
+```
+
+## Processing
+
+```{r cp processing}
+processedTongue_cp = processDataCube(parafac4microbiome::vanderPloeg2024$tongue, sparsityThreshold=0.50, considerGroups=TRUE, groupVariable="RFgroup", CLR=TRUE, centerMode=1, scaleMode=2)
+processedLowling_cp = processDataCube(parafac4microbiome::vanderPloeg2024$lower_jaw_lingual, sparsityThreshold=0.50, considerGroups=TRUE, groupVariable="RFgroup", CLR=TRUE, centerMode=1, scaleMode=2)
+processedLowinter_cp = processDataCube(parafac4microbiome::vanderPloeg2024$lower_jaw_interproximal, sparsityThreshold=0.50, considerGroups=TRUE, groupVariable="RFgroup", CLR=TRUE, centerMode=1, scaleMode=2)
+processedUpling_cp = processDataCube(parafac4microbiome::vanderPloeg2024$upper_jaw_lingual, sparsityThreshold=0.50, considerGroups=TRUE, groupVariable="RFgroup", CLR=TRUE, centerMode=1, scaleMode=2)
+processedUpinter_cp = processDataCube(parafac4microbiome::vanderPloeg2024$upper_jaw_interproximal, sparsityThreshold=0.50, considerGroups=TRUE, groupVariable="RFgroup", CLR=TRUE, centerMode=1, scaleMode=2)
+processedSaliva_cp = processDataCube(parafac4microbiome::vanderPloeg2024$saliva, sparsityThreshold=0.50, considerGroups=TRUE, groupVariable="RFgroup", CLR=TRUE, centerMode=1, scaleMode=2)
+processedMetabolomics_cp = parafac4microbiome::vanderPloeg2024$metabolomics
+
+homogenizedSubjects = parafac4microbiome::vanderPloeg2024$metabolomics$mode1$subject
+mask = parafac4microbiome::vanderPloeg2024$tongue$mode1$subject %in% homogenizedSubjects
+
+# Tongue
+temp = parafac4microbiome::vanderPloeg2024$tongue
+temp$data = temp$data[mask,,]
+temp$mode1 = temp$mode1[mask,]
+processedTongue_acmtf = processDataCube(temp, sparsityThreshold=0.50, considerGroups=TRUE, groupVariable="RFgroup", CLR=TRUE, centerMode=1, scaleMode=2)
+
+# Lowling
+temp = parafac4microbiome::vanderPloeg2024$lower_jaw_lingual
+temp$data = temp$data[mask,,]
+temp$mode1 = temp$mode1[mask,]
+processedLowling_acmtf = processDataCube(temp, sparsityThreshold=0.50, considerGroups=TRUE, groupVariable="RFgroup", CLR=TRUE, centerMode=1, scaleMode=2)
+
+# Lowinter
+temp = parafac4microbiome::vanderPloeg2024$lower_jaw_interproximal
+temp$data = temp$data[mask,,]
+temp$mode1 = temp$mode1[mask,]
+processedLowinter_acmtf = processDataCube(temp, sparsityThreshold=0.50, considerGroups=TRUE, groupVariable="RFgroup", CLR=TRUE, centerMode=1, scaleMode=2)
+
+# Upling
+temp = parafac4microbiome::vanderPloeg2024$upper_jaw_lingual
+temp$data = temp$data[mask,,]
+temp$mode1 = temp$mode1[mask,]
+processedUpling_acmtf = processDataCube(temp, sparsityThreshold=0.50, considerGroups=TRUE, groupVariable="RFgroup", CLR=TRUE, centerMode=1, scaleMode=2)
+
+# Upinter
+temp = parafac4microbiome::vanderPloeg2024$upper_jaw_interproximal
+temp$data = temp$data[mask,,]
+temp$mode1 = temp$mode1[mask,]
+processedUpinter_acmtf = processDataCube(temp, sparsityThreshold=0.50, considerGroups=TRUE, groupVariable="RFgroup", CLR=TRUE, centerMode=1, scaleMode=2)
+
+# Saliva
+temp = parafac4microbiome::vanderPloeg2024$saliva
+temp$data = temp$data[mask,,]
+temp$mode1 = temp$mode1[mask,]
+processedSaliva_acmtf = processDataCube(temp, sparsityThreshold=0.50, considerGroups=TRUE, groupVariable="RFgroup", CLR=TRUE, centerMode=1, scaleMode=2)
+
+# Metabolomics stays the same
+processedMetabolomics_acmtf = parafac4microbiome::vanderPloeg2024$metabolomics
+```
+
+## Import models
+
+```{r load models}
+cp_tongue = readRDS("../TIFN2/cp_tongue.RDS") # R=2
+cp_lowling = readRDS("../TIFN2/cp_lowling.RDS") # R=1
+cp_lowinter = readRDS("../TIFN2/cp_lowinter.RDS") # R=2
+cp_upling = readRDS("../TIFN2/cp_upling.RDS") # R=2
+cp_upinter = readRDS("../TIFN2/cp_upinter.RDS") # R=2
+cp_saliva = readRDS("../TIFN2/cp_saliva.RDS") # R=2
+cp_metabolomics = readRDS("../TIFN2/cp_metabolomics.RDS") # R=1
+
+npls_tongue = readRDS("../TIFN2/NPLS_tongue.RDS") # R=3
+npls_lowling = readRDS("../TIFN2/NPLS_lowling.RDS") # R=2
+npls_lowinter = readRDS("../TIFN2/NPLS_lowinter.RDS") # R=3
+npls_upling = readRDS("../TIFN2/NPLS_upling.RDS") # R=1
+npls_upinter = readRDS("../TIFN2/NPLS_upinter.RDS") # R=1
+npls_saliva = readRDS("../TIFN2/NPLS_saliva.RDS") # R=1
+npls_metab = readRDS("../TIFN2/NPLS_metab.RDS") # R=1
+
+acmtf_model = readRDS("../TIFN2/acmtf_model.RDS") # R=3
+acmtfr_model = readRDS("../TIFN2/TIFN2_ACMTFR_model_0.8.RDS") # R=1
+
+models = list(cp_tongue, cp_lowling, cp_lowinter, cp_upling, cp_upinter, cp_saliva, cp_metabolomics,
+              npls_tongue, npls_lowling, npls_lowinter, npls_upling, npls_upinter, npls_saliva, npls_metab,
+              acmtf_model, acmtfr_model)
+```
+
+## Comparison
+
+```{r compare models using FMS}
+plotlistFMS = list()
+plotlistA = list()
+plotlistB = list()
+plotlistC = list()
+iterator = 1
+midpoint = 0.50
+size = 4
+
+# Tongue
+CPmeta = processedTongue_cp
+ACMTFmeta = processedTongue_acmtf
+cp_model = cp_tongue
+npls_model = npls_tongue
+acmtf_mode = 2
+
+part1 = cbind(CPmeta$mode1, cp_model$Fac[[1]], npls_model$Fac[[1]])
+colnames(part1) = c("subject", "RFgroup", "Age", "Gender", paste0("CP (", 1:ncol(cp_model$Fac[[1]]), ")"), paste0("NPLS (", 1:ncol(npls_model$Fac[[1]]), ")"))
+part2 = cbind(ACMTFmeta$mode1, acmtf_model$Fac[[1]], acmtfr_model$Fac[[1]])
+colnames(part2) = c("subject", "RFgroup", "Age", "Gender", paste0("ACMTF (", 1:ncol(acmtf_model$Fac[[1]]), ")"), paste0("ACMTF-R (", 1:ncol(acmtfr_model$Fac[[1]]), ")"))
+A = part1 %>% inner_join(part2) %>% select(-subject, -RFgroup, -Age, -Gender) %>% as.data.frame()
+
+part1 = cbind(CPmeta$mode2, cp_model$Fac[[2]], npls_model$Fac[[2]])
+colnames(part1) = c("asv", "Kingdom", "Phylum", "Class", "Order", "Family", "Genus", "Species", "representative_sequence", paste0("CP (", 1:ncol(cp_model$Fac[[1]]), ")"), paste0("NPLS (", 1:ncol(npls_model$Fac[[1]]), ")"))
+part2 = cbind(ACMTFmeta$mode2, acmtf_model$Fac[[acmtf_mode]], acmtfr_model$Fac[[acmtf_mode]])
+colnames(part2) = c("asv", "Kingdom", "Phylum", "Class", "Order", "Family", "Genus", "Species", "representative_sequence", paste0("ACMTF (", 1:ncol(acmtf_model$Fac[[1]]), ")"), paste0("ACMTF-R (", 1:ncol(acmtfr_model$Fac[[1]]), ")"))
+B = part1 %>% inner_join(part2) %>% select(-asv, -Kingdom, -Phylum, -Class, -Order, -Family, -Genus, -Species, -representative_sequence) %>% as.data.frame()
+C = cbind(cp_model$Fac[[3]], npls_model$Fac[[3]], acmtf_model$Fac[[acmtf_mode+1]], acmtfr_model$Fac[[acmtf_mode+1]])
+
+TCC_A = matrix(NA, nrow=ncol(A), ncol=ncol(A))
+TCC_B = matrix(NA, nrow=ncol(B), ncol=ncol(B))
+TCC_C = matrix(NA, nrow=ncol(C), ncol=ncol(C))
+for(i in 1:ncol(B)){
+  for(j in 1:ncol(B)){
+    TCC_A[i,j] = calculateTCC(A[,i], A[,j])
+    TCC_B[i,j] = calculateTCC(B[,i], B[,j])
+    TCC_C[i,j] = calculateTCC(C[,i], C[,j])
+  }
+}
+
+labels = c(paste0("CP (", 1:ncol(cp_model$Fac[[1]]), ")"), paste0("NPLS (", 1:ncol(npls_model$Fac[[1]]), ")"), paste0("ACMTF (", 1:ncol(acmtf_model$Fac[[1]]), ")"), paste0("ACMTF-R (", 1:ncol(acmtfr_model$Fac[[1]]), ")"))
+
+FMS = (TCC_A * TCC_B * TCC_C)
+diag(FMS) = NA
+FMS[lower.tri(FMS)] = NA
+plotlistFMS[[iterator]] = FMS %>%
+  as_tibble() %>%
+  mutate(model = paste0("V", 1:ncol(A))) %>%
+  pivot_longer(-model) %>%
+  ggplot(aes(x=as.factor(model),y=as.factor(name),fill=value)) +
+  geom_tile(col="black") +
+  geom_text(aes(label = sprintf("%.2f", value)), size = size) +
+  scale_x_discrete(name="", labels=labels) +
+  scale_y_discrete(name="", labels=labels) +
+  scale_fill_gradient(name="FMS", low="#FFFFFF", high="#1B7837", na.value="black", limits=c(0,1.01)) +
+  theme(legend.position="na", axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1), text=element_text(size=16))
+
+combinedTCC = matrix(NA, nrow=nrow(TCC_A), ncol=ncol(TCC_A))
+combinedTCC[upper.tri(combinedTCC)] = TCC_A[upper.tri(TCC_A)]
+combinedTCC[lower.tri(combinedTCC)] = TCC_B[lower.tri(TCC_B)]
+plotlistA[[iterator]] = combinedTCC %>%
+  as_tibble() %>%
+  mutate(model = paste0("V", 1:ncol(A))) %>%
+  pivot_longer(-model) %>%
+  ggplot(aes(x=as.factor(model),y=as.factor(name),fill=value)) +
+  geom_tile(col="black") +
+  geom_text(aes(label = sprintf("%.2f", value)), size = size) +
+  scale_x_discrete(name="", labels=labels) +
+  scale_y_discrete(name="", labels=labels) +
+  scale_fill_gradient(name="TCC", low="#FFFFFF", high="#1B7837", na.value="black", limits=c(0,1.01)) +
+  theme(legend.position="na", axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1), text=element_text(size=16))
+
+iterator = iterator + 1
+
+# Lowling
+CPmeta = processedLowling_cp
+ACMTFmeta = processedLowling_acmtf
+cp_model = cp_lowling
+npls_model = npls_lowling
+acmtf_mode = 4
+
+part1 = cbind(CPmeta$mode1, cp_model$Fac[[1]], npls_model$Fac[[1]])
+colnames(part1) = c("subject", "RFgroup", "Age", "Gender", paste0("CP (", 1:ncol(cp_model$Fac[[1]]), ")"), paste0("NPLS (", 1:ncol(npls_model$Fac[[1]]), ")"))
+part2 = cbind(ACMTFmeta$mode1, acmtf_model$Fac[[1]], acmtfr_model$Fac[[1]])
+colnames(part2) = c("subject", "RFgroup", "Age", "Gender", paste0("ACMTF (", 1:ncol(acmtf_model$Fac[[1]]), ")"), paste0("ACMTF-R (", 1:ncol(acmtfr_model$Fac[[1]]), ")"))
+A = part1 %>% inner_join(part2) %>% select(-subject, -RFgroup, -Age, -Gender) %>% as.data.frame()
+
+part1 = cbind(CPmeta$mode2, cp_model$Fac[[2]], npls_model$Fac[[2]])
+colnames(part1) = c("asv", "Kingdom", "Phylum", "Class", "Order", "Family", "Genus", "Species", "representative_sequence", paste0("CP (", 1:ncol(cp_model$Fac[[1]]), ")"), paste0("NPLS (", 1:ncol(npls_model$Fac[[1]]), ")"))
+part2 = cbind(ACMTFmeta$mode2, acmtf_model$Fac[[acmtf_mode]], acmtfr_model$Fac[[acmtf_mode]])
+colnames(part2) = c("asv", "Kingdom", "Phylum", "Class", "Order", "Family", "Genus", "Species", "representative_sequence", paste0("ACMTF (", 1:ncol(acmtf_model$Fac[[1]]), ")"), paste0("ACMTF-R (", 1:ncol(acmtfr_model$Fac[[1]]), ")"))
+B = part1 %>% inner_join(part2) %>% select(-asv, -Kingdom, -Phylum, -Class, -Order, -Family, -Genus, -Species, -representative_sequence) %>% as.data.frame()
+C = cbind(cp_model$Fac[[3]], npls_model$Fac[[3]], acmtf_model$Fac[[acmtf_mode+1]], acmtfr_model$Fac[[acmtf_mode+1]])
+
+TCC_A = matrix(NA, nrow=ncol(A), ncol=ncol(A))
+TCC_B = matrix(NA, nrow=ncol(B), ncol=ncol(B))
+TCC_C = matrix(NA, nrow=ncol(C), ncol=ncol(C))
+for(i in 1:ncol(B)){
+  for(j in 1:ncol(B)){
+    TCC_A[i,j] = calculateTCC(A[,i], A[,j])
+    TCC_B[i,j] = calculateTCC(B[,i], B[,j])
+    TCC_C[i,j] = calculateTCC(C[,i], C[,j])
+  }
+}
+
+labels = c(paste0("CP (", 1:ncol(cp_model$Fac[[1]]), ")"), paste0("NPLS (", 1:ncol(npls_model$Fac[[1]]), ")"), paste0("ACMTF (", 1:ncol(acmtf_model$Fac[[1]]), ")"), paste0("ACMTF-R (", 1:ncol(acmtfr_model$Fac[[1]]), ")"))
+
+FMS = (TCC_A * TCC_B * TCC_C)
+diag(FMS) = NA
+FMS[lower.tri(FMS)] = NA
+plotlistFMS[[iterator]] = FMS %>%
+  as_tibble() %>%
+  mutate(model = paste0("V", 1:ncol(A))) %>%
+  pivot_longer(-model) %>%
+  ggplot(aes(x=as.factor(model),y=as.factor(name),fill=value)) +
+  geom_tile(col="black") +
+  geom_text(aes(label = sprintf("%.2f", value)), size = size) +
+  scale_x_discrete(name="", labels=labels) +
+  scale_y_discrete(name="", labels=labels) +
+  scale_fill_gradient(name="FMS", low="#FFFFFF", high="#1B7837", na.value="black", limits=c(0,1.01)) +
+  theme(legend.position="na", axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1), text=element_text(size=16))
+
+combinedTCC = matrix(NA, nrow=nrow(TCC_A), ncol=ncol(TCC_A))
+combinedTCC[upper.tri(combinedTCC)] = TCC_A[upper.tri(TCC_A)]
+combinedTCC[lower.tri(combinedTCC)] = TCC_B[lower.tri(TCC_B)]
+plotlistA[[iterator]] = combinedTCC %>%
+  as_tibble() %>%
+  mutate(model = paste0("V", 1:ncol(A))) %>%
+  pivot_longer(-model) %>%
+  ggplot(aes(x=as.factor(model),y=as.factor(name),fill=value)) +
+  geom_tile(col="black") +
+  geom_text(aes(label = sprintf("%.2f", value)), size = size) +
+  scale_x_discrete(name="", labels=labels) +
+  scale_y_discrete(name="", labels=labels) +
+  scale_fill_gradient(name="TCC", low="#FFFFFF", high="#1B7837", na.value="black", limits=c(0,1.01)) +
+  theme(legend.position="na", axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1), text=element_text(size=16))
+
+iterator = iterator + 1
+
+# Lowinter
+CPmeta = processedLowinter_cp
+ACMTFmeta = processedLowinter_acmtf
+cp_model = cp_lowinter
+npls_model = npls_lowinter
+acmtf_mode = 6
+
+part1 = cbind(CPmeta$mode1, cp_model$Fac[[1]], npls_model$Fac[[1]])
+colnames(part1) = c("subject", "RFgroup", "Age", "Gender", paste0("CP (", 1:ncol(cp_model$Fac[[1]]), ")"), paste0("NPLS (", 1:ncol(npls_model$Fac[[1]]), ")"))
+part2 = cbind(ACMTFmeta$mode1, acmtf_model$Fac[[1]], acmtfr_model$Fac[[1]])
+colnames(part2) = c("subject", "RFgroup", "Age", "Gender", paste0("ACMTF (", 1:ncol(acmtf_model$Fac[[1]]), ")"), paste0("ACMTF-R (", 1:ncol(acmtfr_model$Fac[[1]]), ")"))
+A = part1 %>% inner_join(part2) %>% select(-subject, -RFgroup, -Age, -Gender) %>% as.data.frame()
+
+part1 = cbind(CPmeta$mode2, cp_model$Fac[[2]], npls_model$Fac[[2]])
+colnames(part1) = c("asv", "Kingdom", "Phylum", "Class", "Order", "Family", "Genus", "Species", "representative_sequence", paste0("CP (", 1:ncol(cp_model$Fac[[1]]), ")"), paste0("NPLS (", 1:ncol(npls_model$Fac[[1]]), ")"))
+part2 = cbind(ACMTFmeta$mode2, acmtf_model$Fac[[acmtf_mode]], acmtfr_model$Fac[[acmtf_mode]])
+colnames(part2) = c("asv", "Kingdom", "Phylum", "Class", "Order", "Family", "Genus", "Species", "representative_sequence", paste0("ACMTF (", 1:ncol(acmtf_model$Fac[[1]]), ")"), paste0("ACMTF-R (", 1:ncol(acmtfr_model$Fac[[1]]), ")"))
+B = part1 %>% inner_join(part2) %>% select(-asv, -Kingdom, -Phylum, -Class, -Order, -Family, -Genus, -Species, -representative_sequence) %>% as.data.frame()
+C = cbind(cp_model$Fac[[3]], npls_model$Fac[[3]], acmtf_model$Fac[[acmtf_mode+1]], acmtfr_model$Fac[[acmtf_mode+1]])
+
+TCC_A = matrix(NA, nrow=ncol(A), ncol=ncol(A))
+TCC_B = matrix(NA, nrow=ncol(B), ncol=ncol(B))
+TCC_C = matrix(NA, nrow=ncol(C), ncol=ncol(C))
+for(i in 1:ncol(B)){
+  for(j in 1:ncol(B)){
+    TCC_A[i,j] = calculateTCC(A[,i], A[,j])
+    TCC_B[i,j] = calculateTCC(B[,i], B[,j])
+    TCC_C[i,j] = calculateTCC(C[,i], C[,j])
+  }
+}
+
+labels = c(paste0("CP (", 1:ncol(cp_model$Fac[[1]]), ")"), paste0("NPLS (", 1:ncol(npls_model$Fac[[1]]), ")"), paste0("ACMTF (", 1:ncol(acmtf_model$Fac[[1]]), ")"), paste0("ACMTF-R (", 1:ncol(acmtfr_model$Fac[[1]]), ")"))
+
+FMS = (TCC_A * TCC_B * TCC_C)
+diag(FMS) = NA
+FMS[lower.tri(FMS)] = NA
+plotlistFMS[[iterator]] = FMS %>%
+  as_tibble() %>%
+  mutate(model = paste0("V", 1:ncol(A))) %>%
+  pivot_longer(-model) %>%
+  ggplot(aes(x=as.factor(model),y=as.factor(name),fill=value)) +
+  geom_tile(col="black") +
+  geom_text(aes(label = sprintf("%.2f", value)), size = size) +
+  scale_x_discrete(name="", labels=labels) +
+  scale_y_discrete(name="", labels=labels) +
+  scale_fill_gradient(name="FMS", low="#FFFFFF", high="#1B7837", na.value="black", limits=c(0,1.01)) +
+  theme(legend.position="na", axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1), text=element_text(size=16))
+
+combinedTCC = matrix(NA, nrow=nrow(TCC_A), ncol=ncol(TCC_A))
+combinedTCC[upper.tri(combinedTCC)] = TCC_A[upper.tri(TCC_A)]
+combinedTCC[lower.tri(combinedTCC)] = TCC_B[lower.tri(TCC_B)]
+plotlistA[[iterator]] = combinedTCC %>%
+  as_tibble() %>%
+  mutate(model = paste0("V", 1:ncol(A))) %>%
+  pivot_longer(-model) %>%
+  ggplot(aes(x=as.factor(model),y=as.factor(name),fill=value)) +
+  geom_tile(col="black") +
+  geom_text(aes(label = sprintf("%.2f", value)), size = size) +
+  scale_x_discrete(name="", labels=labels) +
+  scale_y_discrete(name="", labels=labels) +
+  scale_fill_gradient(name="TCC", low="#FFFFFF", high="#1B7837", na.value="black", limits=c(0,1.01)) +
+  theme(legend.position="na", axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1), text=element_text(size=16))
+
+iterator = iterator + 1
+
+# Upling
+CPmeta = processedUpling_cp
+ACMTFmeta = processedUpling_acmtf
+cp_model = cp_upling
+npls_model = npls_upling
+acmtf_mode = 8
+
+part1 = cbind(CPmeta$mode1, cp_model$Fac[[1]], npls_model$Fac[[1]])
+colnames(part1) = c("subject", "RFgroup", "Age", "Gender", paste0("CP (", 1:ncol(cp_model$Fac[[1]]), ")"), paste0("NPLS (", 1:ncol(npls_model$Fac[[1]]), ")"))
+part2 = cbind(ACMTFmeta$mode1, acmtf_model$Fac[[1]], acmtfr_model$Fac[[1]])
+colnames(part2) = c("subject", "RFgroup", "Age", "Gender", paste0("ACMTF (", 1:ncol(acmtf_model$Fac[[1]]), ")"), paste0("ACMTF-R (", 1:ncol(acmtfr_model$Fac[[1]]), ")"))
+A = part1 %>% inner_join(part2) %>% select(-subject, -RFgroup, -Age, -Gender) %>% as.data.frame()
+
+part1 = cbind(CPmeta$mode2, cp_model$Fac[[2]], npls_model$Fac[[2]])
+colnames(part1) = c("asv", "Kingdom", "Phylum", "Class", "Order", "Family", "Genus", "Species", "representative_sequence", paste0("CP (", 1:ncol(cp_model$Fac[[1]]), ")"), paste0("NPLS (", 1:ncol(npls_model$Fac[[1]]), ")"))
+part2 = cbind(ACMTFmeta$mode2, acmtf_model$Fac[[acmtf_mode]], acmtfr_model$Fac[[acmtf_mode]])
+colnames(part2) = c("asv", "Kingdom", "Phylum", "Class", "Order", "Family", "Genus", "Species", "representative_sequence", paste0("ACMTF (", 1:ncol(acmtf_model$Fac[[1]]), ")"), paste0("ACMTF-R (", 1:ncol(acmtfr_model$Fac[[1]]), ")"))
+B = part1 %>% inner_join(part2) %>% select(-asv, -Kingdom, -Phylum, -Class, -Order, -Family, -Genus, -Species, -representative_sequence) %>% as.data.frame()
+C = cbind(cp_model$Fac[[3]], npls_model$Fac[[3]], acmtf_model$Fac[[acmtf_mode+1]], acmtfr_model$Fac[[acmtf_mode+1]])
+
+TCC_A = matrix(NA, nrow=ncol(A), ncol=ncol(A))
+TCC_B = matrix(NA, nrow=ncol(B), ncol=ncol(B))
+TCC_C = matrix(NA, nrow=ncol(C), ncol=ncol(C))
+for(i in 1:ncol(B)){
+  for(j in 1:ncol(B)){
+    TCC_A[i,j] = calculateTCC(A[,i], A[,j])
+    TCC_B[i,j] = calculateTCC(B[,i], B[,j])
+    TCC_C[i,j] = calculateTCC(C[,i], C[,j])
+  }
+}
+
+labels = c(paste0("CP (", 1:ncol(cp_model$Fac[[1]]), ")"), paste0("NPLS (", 1:ncol(npls_model$Fac[[1]]), ")"), paste0("ACMTF (", 1:ncol(acmtf_model$Fac[[1]]), ")"), paste0("ACMTF-R (", 1:ncol(acmtfr_model$Fac[[1]]), ")"))
+
+FMS = (TCC_A * TCC_B * TCC_C)
+diag(FMS) = NA
+FMS[lower.tri(FMS)] = NA
+plotlistFMS[[iterator]] = FMS %>%
+  as_tibble() %>%
+  mutate(model = paste0("V", 1:ncol(A))) %>%
+  pivot_longer(-model) %>%
+  ggplot(aes(x=as.factor(model),y=as.factor(name),fill=value)) +
+  geom_tile(col="black") +
+  geom_text(aes(label = sprintf("%.2f", value)), size = size) +
+  scale_x_discrete(name="", labels=labels) +
+  scale_y_discrete(name="", labels=labels) +
+  scale_fill_gradient(name="FMS", low="#FFFFFF", high="#1B7837", na.value="black", limits=c(0,1.01)) +
+  theme(legend.position="na", axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1), text=element_text(size=16))
+
+combinedTCC = matrix(NA, nrow=nrow(TCC_A), ncol=ncol(TCC_A))
+combinedTCC[upper.tri(combinedTCC)] = TCC_A[upper.tri(TCC_A)]
+combinedTCC[lower.tri(combinedTCC)] = TCC_B[lower.tri(TCC_B)]
+plotlistA[[iterator]] = combinedTCC %>%
+  as_tibble() %>%
+  mutate(model = paste0("V", 1:ncol(A))) %>%
+  pivot_longer(-model) %>%
+  ggplot(aes(x=as.factor(model),y=as.factor(name),fill=value)) +
+  geom_tile(col="black") +
+  geom_text(aes(label = sprintf("%.2f", value)), size = size) +
+  scale_x_discrete(name="", labels=labels) +
+  scale_y_discrete(name="", labels=labels) +
+  scale_fill_gradient(name="TCC", low="#FFFFFF", high="#1B7837", na.value="black", limits=c(0,1.01)) +
+  theme(legend.position="na", axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1), text=element_text(size=16))
+
+iterator = iterator + 1
+
+# Upinter
+CPmeta = processedUpinter_cp
+ACMTFmeta = processedUpinter_acmtf
+cp_model = cp_upinter
+npls_model = npls_upinter
+acmtf_mode = 10
+
+part1 = cbind(CPmeta$mode1, cp_model$Fac[[1]], npls_model$Fac[[1]])
+colnames(part1) = c("subject", "RFgroup", "Age", "Gender", paste0("CP (", 1:ncol(cp_model$Fac[[1]]), ")"), paste0("NPLS (", 1:ncol(npls_model$Fac[[1]]), ")"))
+part2 = cbind(ACMTFmeta$mode1, acmtf_model$Fac[[1]], acmtfr_model$Fac[[1]])
+colnames(part2) = c("subject", "RFgroup", "Age", "Gender", paste0("ACMTF (", 1:ncol(acmtf_model$Fac[[1]]), ")"), paste0("ACMTF-R (", 1:ncol(acmtfr_model$Fac[[1]]), ")"))
+A = part1 %>% inner_join(part2) %>% select(-subject, -RFgroup, -Age, -Gender) %>% as.data.frame()
+
+part1 = cbind(CPmeta$mode2, cp_model$Fac[[2]], npls_model$Fac[[2]])
+colnames(part1) = c("asv", "Kingdom", "Phylum", "Class", "Order", "Family", "Genus", "Species", "representative_sequence", paste0("CP (", 1:ncol(cp_model$Fac[[1]]), ")"), paste0("NPLS (", 1:ncol(npls_model$Fac[[1]]), ")"))
+part2 = cbind(ACMTFmeta$mode2, acmtf_model$Fac[[acmtf_mode]], acmtfr_model$Fac[[acmtf_mode]])
+colnames(part2) = c("asv", "Kingdom", "Phylum", "Class", "Order", "Family", "Genus", "Species", "representative_sequence", paste0("ACMTF (", 1:ncol(acmtf_model$Fac[[1]]), ")"), paste0("ACMTF-R (", 1:ncol(acmtfr_model$Fac[[1]]), ")"))
+B = part1 %>% inner_join(part2) %>% select(-asv, -Kingdom, -Phylum, -Class, -Order, -Family, -Genus, -Species, -representative_sequence) %>% as.data.frame()
+C = cbind(cp_model$Fac[[3]], npls_model$Fac[[3]], acmtf_model$Fac[[acmtf_mode+1]], acmtfr_model$Fac[[acmtf_mode+1]])
+
+TCC_A = matrix(NA, nrow=ncol(A), ncol=ncol(A))
+TCC_B = matrix(NA, nrow=ncol(B), ncol=ncol(B))
+TCC_C = matrix(NA, nrow=ncol(C), ncol=ncol(C))
+for(i in 1:ncol(B)){
+  for(j in 1:ncol(B)){
+    TCC_A[i,j] = calculateTCC(A[,i], A[,j])
+    TCC_B[i,j] = calculateTCC(B[,i], B[,j])
+    TCC_C[i,j] = calculateTCC(C[,i], C[,j])
+  }
+}
+
+labels = c(paste0("CP (", 1:ncol(cp_model$Fac[[1]]), ")"), paste0("NPLS (", 1:ncol(npls_model$Fac[[1]]), ")"), paste0("ACMTF (", 1:ncol(acmtf_model$Fac[[1]]), ")"), paste0("ACMTF-R (", 1:ncol(acmtfr_model$Fac[[1]]), ")"))
+
+FMS = (TCC_A * TCC_B * TCC_C)
+diag(FMS) = NA
+FMS[lower.tri(FMS)] = NA
+plotlistFMS[[iterator]] = FMS %>%
+  as_tibble() %>%
+  mutate(model = paste0("V", 1:ncol(A))) %>%
+  pivot_longer(-model) %>%
+  ggplot(aes(x=as.factor(model),y=as.factor(name),fill=value)) +
+  geom_tile(col="black") +
+  geom_text(aes(label = sprintf("%.2f", value)), size = size) +
+  scale_x_discrete(name="", labels=labels) +
+  scale_y_discrete(name="", labels=labels) +
+  scale_fill_gradient(name="FMS", low="#FFFFFF", high="#1B7837", na.value="black", limits=c(0,1.01)) +
+  theme(legend.position="na", axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1), text=element_text(size=16))
+
+combinedTCC = matrix(NA, nrow=nrow(TCC_A), ncol=ncol(TCC_A))
+combinedTCC[upper.tri(combinedTCC)] = TCC_A[upper.tri(TCC_A)]
+combinedTCC[lower.tri(combinedTCC)] = TCC_B[lower.tri(TCC_B)]
+plotlistA[[iterator]] = combinedTCC %>%
+  as_tibble() %>%
+  mutate(model = paste0("V", 1:ncol(A))) %>%
+  pivot_longer(-model) %>%
+  ggplot(aes(x=as.factor(model),y=as.factor(name),fill=value)) +
+  geom_tile(col="black") +
+  geom_text(aes(label = sprintf("%.2f", value)), size = size) +
+  scale_x_discrete(name="", labels=labels) +
+  scale_y_discrete(name="", labels=labels) +
+  scale_fill_gradient(name="TCC", low="#FFFFFF", high="#1B7837", na.value="black", limits=c(0,1.01)) +
+  theme(legend.position="na", axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1), text=element_text(size=16))
+
+iterator = iterator + 1
+
+# Saliva
+CPmeta = processedSaliva_cp
+ACMTFmeta = processedSaliva_acmtf
+cp_model = cp_saliva
+npls_model = npls_saliva
+acmtf_mode = 12
+
+part1 = cbind(CPmeta$mode1, cp_model$Fac[[1]], npls_model$Fac[[1]])
+colnames(part1) = c("subject", "RFgroup", "Age", "Gender", paste0("CP (", 1:ncol(cp_model$Fac[[1]]), ")"), paste0("NPLS (", 1:ncol(npls_model$Fac[[1]]), ")"))
+part2 = cbind(ACMTFmeta$mode1, acmtf_model$Fac[[1]], acmtfr_model$Fac[[1]])
+colnames(part2) = c("subject", "RFgroup", "Age", "Gender", paste0("ACMTF (", 1:ncol(acmtf_model$Fac[[1]]), ")"), paste0("ACMTF-R (", 1:ncol(acmtfr_model$Fac[[1]]), ")"))
+A = part1 %>% inner_join(part2) %>% select(-subject, -RFgroup, -Age, -Gender) %>% as.data.frame()
+
+part1 = cbind(CPmeta$mode2, cp_model$Fac[[2]], npls_model$Fac[[2]])
+colnames(part1) = c("asv", "Kingdom", "Phylum", "Class", "Order", "Family", "Genus", "Species", "representative_sequence", paste0("CP (", 1:ncol(cp_model$Fac[[1]]), ")"), paste0("NPLS (", 1:ncol(npls_model$Fac[[1]]), ")"))
+part2 = cbind(ACMTFmeta$mode2, acmtf_model$Fac[[acmtf_mode]], acmtfr_model$Fac[[acmtf_mode]])
+colnames(part2) = c("asv", "Kingdom", "Phylum", "Class", "Order", "Family", "Genus", "Species", "representative_sequence", paste0("ACMTF (", 1:ncol(acmtf_model$Fac[[1]]), ")"), paste0("ACMTF-R (", 1:ncol(acmtfr_model$Fac[[1]]), ")"))
+B = part1 %>% inner_join(part2) %>% select(-asv, -Kingdom, -Phylum, -Class, -Order, -Family, -Genus, -Species, -representative_sequence) %>% as.data.frame()
+C = cbind(cp_model$Fac[[3]], npls_model$Fac[[3]], acmtf_model$Fac[[acmtf_mode+1]], acmtfr_model$Fac[[acmtf_mode+1]])
+
+TCC_A = matrix(NA, nrow=ncol(A), ncol=ncol(A))
+TCC_B = matrix(NA, nrow=ncol(B), ncol=ncol(B))
+TCC_C = matrix(NA, nrow=ncol(C), ncol=ncol(C))
+for(i in 1:ncol(B)){
+  for(j in 1:ncol(B)){
+    TCC_A[i,j] = calculateTCC(A[,i], A[,j])
+    TCC_B[i,j] = calculateTCC(B[,i], B[,j])
+    TCC_C[i,j] = calculateTCC(C[,i], C[,j])
+  }
+}
+
+labels = c(paste0("CP (", 1:ncol(cp_model$Fac[[1]]), ")"), paste0("NPLS (", 1:ncol(npls_model$Fac[[1]]), ")"), paste0("ACMTF (", 1:ncol(acmtf_model$Fac[[1]]), ")"), paste0("ACMTF-R (", 1:ncol(acmtfr_model$Fac[[1]]), ")"))
+
+FMS = (TCC_A * TCC_B * TCC_C)
+diag(FMS) = NA
+FMS[lower.tri(FMS)] = NA
+plotlistFMS[[iterator]] = FMS %>%
+  as_tibble() %>%
+  mutate(model = paste0("V", 1:ncol(A))) %>%
+  pivot_longer(-model) %>%
+  ggplot(aes(x=as.factor(model),y=as.factor(name),fill=value)) +
+  geom_tile(col="black") +
+  geom_text(aes(label = sprintf("%.2f", value)), size = size) +
+  scale_x_discrete(name="", labels=labels) +
+  scale_y_discrete(name="", labels=labels) +
+  scale_fill_gradient(name="FMS", low="#FFFFFF", high="#1B7837", na.value="black", limits=c(0,1.01)) +
+  theme(legend.position="na", axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1), text=element_text(size=16))
+
+combinedTCC = matrix(NA, nrow=nrow(TCC_A), ncol=ncol(TCC_A))
+combinedTCC[upper.tri(combinedTCC)] = TCC_A[upper.tri(TCC_A)]
+combinedTCC[lower.tri(combinedTCC)] = TCC_B[lower.tri(TCC_B)]
+plotlistA[[iterator]] = combinedTCC %>%
+  as_tibble() %>%
+  mutate(model = paste0("V", 1:ncol(A))) %>%
+  pivot_longer(-model) %>%
+  ggplot(aes(x=as.factor(model),y=as.factor(name),fill=value)) +
+  geom_tile(col="black") +
+  geom_text(aes(label = sprintf("%.2f", value)), size = size) +
+  scale_x_discrete(name="", labels=labels) +
+  scale_y_discrete(name="", labels=labels) +
+  scale_fill_gradient(name="TCC", low="#FFFFFF", high="#1B7837", na.value="black", limits=c(0,1.01)) +
+  theme(legend.position="na", axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1), text=element_text(size=16))
+
+iterator = iterator + 1
+
+# Metabolomics
+CPmeta = processedMetabolomics_cp
+ACMTFmeta = processedMetabolomics_acmtf
+cp_model = cp_metabolomics
+npls_model = npls_metab
+acmtf_mode = 14
+
+part1 = cbind(CPmeta$mode1, cp_model$Fac[[1]], npls_model$Fac[[1]])
+colnames(part1) = c("subject", "RFgroup", "Age", "Gender", paste0("CP (", 1:ncol(cp_model$Fac[[1]]), ")"), paste0("NPLS (", 1:ncol(npls_model$Fac[[1]]), ")"))
+part2 = cbind(ACMTFmeta$mode1, acmtf_model$Fac[[1]], acmtfr_model$Fac[[1]])
+colnames(part2) = c("subject", "RFgroup", "Age", "Gender", paste0("ACMTF (", 1:ncol(acmtf_model$Fac[[1]]), ")"), paste0("ACMTF-R (", 1:ncol(acmtfr_model$Fac[[1]]), ")"))
+A = part1 %>% inner_join(part2) %>% select(-subject, -RFgroup, -Age, -Gender) %>% as.data.frame()
+
+part1 = cbind(CPmeta$mode2, cp_model$Fac[[2]], npls_model$Fac[[2]])
+colnames(part1) = c("Type", "Function", "Name", paste0("CP (", 1:ncol(cp_model$Fac[[1]]), ")"), paste0("NPLS (", 1:ncol(npls_model$Fac[[1]]), ")"))
+part2 = cbind(ACMTFmeta$mode2, acmtf_model$Fac[[acmtf_mode]], acmtfr_model$Fac[[acmtf_mode]])
+colnames(part2) = c("Type", "Function", "Name", paste0("ACMTF (", 1:ncol(acmtf_model$Fac[[1]]), ")"), paste0("ACMTF-R (", 1:ncol(acmtfr_model$Fac[[1]]), ")"))
+B = part1 %>% inner_join(part2) %>% select(-Type, -Function, -Name) %>% as.data.frame()
+C = cbind(cp_model$Fac[[3]], npls_model$Fac[[3]], acmtf_model$Fac[[acmtf_mode+1]], acmtfr_model$Fac[[acmtf_mode+1]])
+
+TCC_A = matrix(NA, nrow=ncol(A), ncol=ncol(A))
+TCC_B = matrix(NA, nrow=ncol(B), ncol=ncol(B))
+TCC_C = matrix(NA, nrow=ncol(C), ncol=ncol(C))
+for(i in 1:ncol(B)){
+  for(j in 1:ncol(B)){
+    TCC_A[i,j] = calculateTCC(A[,i], A[,j])
+    TCC_B[i,j] = calculateTCC(B[,i], B[,j])
+    TCC_C[i,j] = calculateTCC(C[,i], C[,j])
+  }
+}
+
+labels = c(paste0("CP (", 1:ncol(cp_model$Fac[[1]]), ")"), paste0("NPLS (", 1:ncol(npls_model$Fac[[1]]), ")"), paste0("ACMTF (", 1:ncol(acmtf_model$Fac[[1]]), ")"), paste0("ACMTF-R (", 1:ncol(acmtfr_model$Fac[[1]]), ")"))
+
+FMS = (TCC_A * TCC_B * TCC_C)
+diag(FMS) = NA
+FMS[lower.tri(FMS)] = NA
+plotlistFMS[[iterator]] = FMS %>%
+  as_tibble() %>%
+  mutate(model = paste0("V", 1:ncol(A))) %>%
+  pivot_longer(-model) %>%
+  ggplot(aes(x=as.factor(model),y=as.factor(name),fill=value)) +
+  geom_tile(col="black") +
+  geom_text(aes(label = sprintf("%.2f", value)), size = size) +
+  scale_x_discrete(name="", labels=labels) +
+  scale_y_discrete(name="", labels=labels) +
+  scale_fill_gradient(name="FMS", low="#FFFFFF", high="#1B7837", na.value="black", limits=c(0,1.01)) +
+  theme(legend.position="na", axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1), text=element_text(size=16))
+
+combinedTCC = matrix(NA, nrow=nrow(TCC_A), ncol=ncol(TCC_A))
+combinedTCC[upper.tri(combinedTCC)] = TCC_A[upper.tri(TCC_A)]
+combinedTCC[lower.tri(combinedTCC)] = TCC_B[lower.tri(TCC_B)]
+plotlistA[[iterator]] = combinedTCC %>%
+  as_tibble() %>%
+  mutate(model = paste0("V", 1:ncol(A))) %>%
+  pivot_longer(-model) %>%
+  ggplot(aes(x=as.factor(model),y=as.factor(name),fill=value)) +
+  geom_tile(col="black") +
+  geom_text(aes(label = sprintf("%.2f", value)), size = size) +
+  scale_x_discrete(name="", labels=labels) +
+  scale_y_discrete(name="", labels=labels) +
+  scale_fill_gradient(name="TCC", low="#FFFFFF", high="#1B7837", na.value="black", limits=c(0,1.01)) +
+  theme(legend.position="na", axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1), text=element_text(size=16))
+
+# ggarrange(plotlist=plotlistFMS, nrow=4, ncol=2)
+# ggarrange(plotlist=plotlistA, nrow=4, ncol=2)
+# ggarrange(plotlist=plotlistB, nrow=4, ncol=2)
+# ggarrange(plotlist=plotlistC, nrow=4, ncol=2)
+
+ggarrange(plotlistFMS[[1]], plotlistA[[1]], nrow=1, ncol=2)
+ggarrange(plotlistFMS[[2]], plotlistA[[2]], nrow=1, ncol=2)
+ggarrange(plotlistFMS[[3]], plotlistA[[3]], nrow=1, ncol=2)
+ggarrange(plotlistFMS[[4]], plotlistA[[4]], nrow=1, ncol=2)
+ggarrange(plotlistFMS[[5]], plotlistA[[5]], nrow=1, ncol=2)
+ggarrange(plotlistFMS[[6]], plotlistA[[6]], nrow=1, ncol=2)
+ggarrange(plotlistFMS[[7]], plotlistA[[7]], nrow=1, ncol=2)
+```
+
+## Compare mode A
+
+```{r metadata test table for mode A - instead of heatmap}
+testMetadata = function(model, comp, metadata){
+  transformedSubjectLoadings = model$Fac[[1]][,comp]
+  transformedSubjectLoadings = transformedSubjectLoadings / norm(transformedSubjectLoadings, "2")
+  
+  metadata = metadata$mode1 %>% left_join(rf_data %>% select(subject,day,Area_delta_R30,plaquepercent,bomppercent) %>% filter(day==14), by="subject")
+  
+  result = lm(transformedSubjectLoadings ~ plaquepercent + bomppercent + Area_delta_R30 + gender + age, data=metadata)
+  
+  # Extract coefficients and confidence intervals
+  coef_estimates <- summary(result)$coefficients
+  conf_intervals <- confint(result)
+  
+  # Remove intercept
+  coef_estimates <- coef_estimates[rownames(coef_estimates) != "(Intercept)", ]
+  conf_intervals <- conf_intervals[rownames(conf_intervals) != "(Intercept)", ]
+  
+  # Combine into a clean data frame
+  summary_table <- data.frame(
+    Term     = rownames(coef_estimates),
+    Estimate = coef_estimates[, "Estimate"] * 1e3,
+    CI       = paste0(
+                 conf_intervals[, 1], " – ",
+                 conf_intervals[, 2]
+               ),
+    P_value  = coef_estimates[, "Pr(>|t|)"],
+    P_adjust = p.adjust(coef_estimates[, "Pr(>|t|)"], "BH"),
+    row.names = NULL
+  )
+  
+  return(summary_table)
+}
+
+testMetadata(cp_tongue, 1, processedTongue_cp)
+testMetadata(cp_lowling, 1, processedLowling_cp)
+testMetadata(cp_lowinter, 1, processedLowinter_cp)
+testMetadata(cp_upling, 1, processedUpling_cp)
+testMetadata(cp_upinter, 1, processedUpinter_cp)
+testMetadata(cp_saliva, 1, processedSaliva_cp)
+testMetadata(cp_metabolomics, 1, processedMetabolomics_cp)
+
+testMetadata(npls_tongue, 1, processedTongue_cp)
+testMetadata(npls_lowling, 1, processedLowling_cp)
+testMetadata(npls_lowinter, 1, processedLowinter_cp)
+testMetadata(npls_upling, 1, processedUpling_cp)
+testMetadata(npls_upinter, 1, processedUpinter_cp)
+testMetadata(npls_saliva, 1, processedSaliva_cp)
+testMetadata(npls_metab, 1, processedMetabolomics_cp)
+
+testMetadata(acmtf_model, 1, processedTongue_acmtf)
+
+testMetadata(acmtfr_model, 1, processedTongue_acmtf)
+```
+
+## Compare mode B
+
+```{r represent features - tongue}
+# Tongue
+CPmeta = processedTongue_cp
+ACMTFmeta = processedTongue_acmtf
+cp_model = cp_tongue
+npls_model = npls_tongue
+acmtf_mode = 2
+
+part1 = cbind(CPmeta$mode2, cp_model$Fac[[2]], npls_model$Fac[[2]])
+colnames(part1) = c("asv", "Kingdom", "Phylum", "Class", "Order", "Family", "Genus", "Species", "representative_sequence", paste0("CP (", 1:ncol(cp_model$Fac[[1]]), ")"), paste0("NPLS (", 1:ncol(npls_model$Fac[[1]]), ")"))
+part2 = cbind(ACMTFmeta$mode2, acmtf_model$Fac[[acmtf_mode]], acmtfr_model$Fac[[acmtf_mode]])
+colnames(part2) = c("asv", "Kingdom", "Phylum", "Class", "Order", "Family", "Genus", "Species", "representative_sequence", paste0("ACMTF (", 1:ncol(acmtf_model$Fac[[1]]), ")"), paste0("ACMTF-R (", 1:ncol(acmtfr_model$Fac[[1]]), ")"))
+B = part1 %>% inner_join(part2) %>% select(asv, `NPLS (1)`, `ACMTF (1)`, `ACMTF-R (1)`) %>% as_tibble()
+
+# Check if flips are needed
+cor(npls_model$Xhat[,which(npls_model$Fac[[2]][,1] == max(npls_model$Fac[[2]][,1])),1], CPmeta$mode1 %>% left_join(rf_data %>% filter(day == 14)) %>% select(Area_delta_R30) %>% pull()) # flip
+
+Xhat = parafac4microbiome::reinflateTensor(acmtf_model$Fac[[1]][,1], acmtf_model$Fac[[acmtf_mode]][,1], acmtf_model$Fac[[acmtf_mode+1]][,1])
+cor(Xhat[,which(acmtf_model$Fac[[acmtf_mode]][,1] == max(acmtf_model$Fac[[acmtf_mode]][,1])),1], ACMTFmeta$mode1 %>% left_join(rf_data %>% filter(day == 14)) %>% select(Area_delta_R30) %>% pull()) # no flip
+
+Xhat = parafac4microbiome::reinflateTensor(acmtfr_model$Fac[[1]][,1], acmtfr_model$Fac[[acmtf_mode]][,1], acmtfr_model$Fac[[acmtf_mode+1]][,1])
+cor(Xhat[,which(acmtfr_model$Fac[[acmtf_mode]][,1] == max(acmtfr_model$Fac[[acmtf_mode]][,1])),1], ACMTFmeta$mode1 %>% left_join(rf_data %>% filter(day == 14)) %>% select(Area_delta_R30) %>% pull()) # flip
+
+# Flip
+B = B %>% mutate(`NPLS (1)` = -1 * `NPLS (1)`, `ACMTF-R (1)` = -1 * `ACMTF-R (1)`)
+
+# Wrangle for plot
+B_long <- B %>%
+  pivot_longer(-asv, names_to = "Method", values_to = "Loading") %>%
+  left_join(part1 %>% as_tibble() %>% select(asv, Genus, Species)) %>%
+  left_join(part2 %>% select(asv, Genus, Species))
+
+B_long[is.na(B_long$Species), "Species"] = "sp."
+B_long$name = paste0(B_long$Genus, " ", B_long$Species)
+B_long[B_long$name == "NA sp.", "name"] = "Unknown"
+B_long$name = paste0(B_long$name, " (", B_long$asv, ")")
+
+asv_order_avg <- B_long %>%
+  group_by(name) %>%
+  summarise(mean_loading = mean(Loading)) %>%
+  arrange(desc(mean_loading)) %>%
+  pull(name)
+
+B_long <- B_long %>%
+  mutate(name = factor(name, levels = asv_order_avg)) %>%
+  mutate(Method = factor(Method, levels = c("NPLS (1)", "ACMTF (1)", "ACMTF-R (1)")))
+
+ggplot(B_long, aes(x = Method, y = fct_rev(name), fill = Loading)) +
+  geom_tile(color = "white", width = 0.95, height = 0.95) +
+  scale_fill_gradient2(
+    low = "blue", mid = "white", high = "red",
+    midpoint = 0, name = "Loading"
+  ) +
+  labs(x = "Method (component number)", y = "ASV") +
+  theme_minimal(base_size = 10) +
+  theme(
+    axis.text.y = element_text(size = 6),
+    axis.text.x = element_text(size = 10, angle = 45, hjust = 1),
+    plot.title = element_text(face = "bold", size = 13, hjust = 0.5),
+    panel.grid = element_blank()
+  )
+```
+
+```{r represent features - lowling}
+# Tongue
+CPmeta = processedLowling_cp
+ACMTFmeta = processedLowling_acmtf
+cp_model = cp_lowling
+npls_model = npls_lowling
+acmtf_mode = 4
+
+part1 = cbind(CPmeta$mode2, cp_model$Fac[[2]], npls_model$Fac[[2]])
+colnames(part1) = c("asv", "Kingdom", "Phylum", "Class", "Order", "Family", "Genus", "Species", "representative_sequence", paste0("CP (", 1:ncol(cp_model$Fac[[1]]), ")"), paste0("NPLS (", 1:ncol(npls_model$Fac[[1]]), ")"))
+part2 = cbind(ACMTFmeta$mode2, acmtf_model$Fac[[acmtf_mode]], acmtfr_model$Fac[[acmtf_mode]])
+colnames(part2) = c("asv", "Kingdom", "Phylum", "Class", "Order", "Family", "Genus", "Species", "representative_sequence", paste0("ACMTF (", 1:ncol(acmtf_model$Fac[[1]]), ")"), paste0("ACMTF-R (", 1:ncol(acmtfr_model$Fac[[1]]), ")"))
+B = part1 %>% inner_join(part2) %>% select(asv, `CP (1)`, `NPLS (1)`, `ACMTF (1)`, `ACMTF-R (1)`) %>% as_tibble()
+
+# Check if flips are needed
+cor(cp_model$Xhat[,which(cp_model$Fac[[2]][,1] == max(cp_model$Fac[[2]][,1])),1], CPmeta$mode1 %>% left_join(rf_data %>% filter(day == 14)) %>% select(Area_delta_R30) %>% pull()) # flip
+
+cor(npls_model$Xhat[,which(npls_model$Fac[[2]][,1] == max(npls_model$Fac[[2]][,1])),1], CPmeta$mode1 %>% left_join(rf_data %>% filter(day == 14)) %>% select(Area_delta_R30) %>% pull()) # flip
+
+Xhat = parafac4microbiome::reinflateTensor(acmtf_model$Fac[[1]][,1], acmtf_model$Fac[[acmtf_mode]][,1], acmtf_model$Fac[[acmtf_mode+1]][,1])
+cor(Xhat[,which(acmtf_model$Fac[[acmtf_mode]][,1] == max(acmtf_model$Fac[[acmtf_mode]][,1])),1], ACMTFmeta$mode1 %>% left_join(rf_data %>% filter(day == 14)) %>% select(Area_delta_R30) %>% pull()) # flip
+
+Xhat = parafac4microbiome::reinflateTensor(acmtfr_model$Fac[[1]][,1], acmtfr_model$Fac[[acmtf_mode]][,1], acmtfr_model$Fac[[acmtf_mode+1]][,1])
+cor(Xhat[,which(acmtfr_model$Fac[[acmtf_mode]][,1] == max(acmtfr_model$Fac[[acmtf_mode]][,1])),1], ACMTFmeta$mode1 %>% left_join(rf_data %>% filter(day == 14)) %>% select(Area_delta_R30) %>% pull()) # flip
+
+# Flip
+B = B %>% mutate(`CP (1)` = -1 * `CP (1)`, `NPLS (1)` = -1 * `NPLS (1)`, `ACMTF (1)` = -1 * `ACMTF (1)`, `ACMTF-R (1)` = -1 * `ACMTF-R (1)`)
+
+# Wrangle for plot
+B_long <- B %>%
+  pivot_longer(-asv, names_to = "Method", values_to = "Loading") %>%
+  left_join(part1 %>% as_tibble() %>% select(asv, Genus, Species)) %>%
+  left_join(part2 %>% select(asv, Genus, Species))
+
+B_long[is.na(B_long$Species), "Species"] = "sp."
+B_long$name = paste0(B_long$Genus, " ", B_long$Species)
+B_long[B_long$name == "NA sp.", "name"] = "Unknown"
+B_long$name = paste0(B_long$name, " (", B_long$asv, ")")
+
+asv_order_avg <- B_long %>%
+  group_by(name) %>%
+  summarise(mean_loading = mean(Loading)) %>%
+  arrange(desc(mean_loading)) %>%
+  pull(name)
+
+B_long <- B_long %>%
+  mutate(name = factor(name, levels = asv_order_avg)) %>%
+  mutate(Method = factor(Method, levels = c("CP (1)", "NPLS (1)", "ACMTF (1)", "ACMTF-R (1)")))
+
+ggplot(B_long, aes(x = Method, y = fct_rev(name), fill = Loading)) +
+  geom_tile(color = "white", width = 0.95, height = 0.95) +
+  scale_fill_gradient2(
+    low = "blue", mid = "white", high = "red",
+    midpoint = 0, name = "Loading"
+  ) +
+  labs(x = "Method (component number)", y = "ASV") +
+  theme_minimal(base_size = 10) +
+  theme(
+    axis.text.y = element_text(size = 6),
+    axis.text.x = element_text(size = 10, angle = 45, hjust = 1),
+    plot.title = element_text(face = "bold", size = 13, hjust = 0.5),
+    panel.grid = element_blank()
+  )
+```
+
+```{r represent features - lowinter}
+# Tongue
+CPmeta = processedLowinter_cp
+ACMTFmeta = processedLowinter_acmtf
+cp_model = cp_lowinter
+npls_model = npls_lowinter
+acmtf_mode = 6
+
+part1 = cbind(CPmeta$mode2, cp_model$Fac[[2]], npls_model$Fac[[2]])
+colnames(part1) = c("asv", "Kingdom", "Phylum", "Class", "Order", "Family", "Genus", "Species", "representative_sequence", paste0("CP (", 1:ncol(cp_model$Fac[[1]]), ")"), paste0("NPLS (", 1:ncol(npls_model$Fac[[1]]), ")"))
+part2 = cbind(ACMTFmeta$mode2, acmtf_model$Fac[[acmtf_mode]], acmtfr_model$Fac[[acmtf_mode]])
+colnames(part2) = c("asv", "Kingdom", "Phylum", "Class", "Order", "Family", "Genus", "Species", "representative_sequence", paste0("ACMTF (", 1:ncol(acmtf_model$Fac[[1]]), ")"), paste0("ACMTF-R (", 1:ncol(acmtfr_model$Fac[[1]]), ")"))
+B = part1 %>% inner_join(part2) %>% select(asv, `CP (2)`, `NPLS (1)`, `ACMTF (1)`, `ACMTF-R (1)`) %>% as_tibble()
+
+# Check if flips are needed
+cor(cp_model$Xhat[,which(cp_model$Fac[[2]][,2] == max(cp_model$Fac[[2]][,2])),2], CPmeta$mode1 %>% left_join(rf_data %>% filter(day == 14)) %>% select(Area_delta_R30) %>% pull()) # flip
+
+cor(npls_model$Xhat[,which(npls_model$Fac[[2]][,1] == max(npls_model$Fac[[2]][,1])),1], CPmeta$mode1 %>% left_join(rf_data %>% filter(day == 14)) %>% select(Area_delta_R30) %>% pull()) # no flip
+
+Xhat = parafac4microbiome::reinflateTensor(acmtf_model$Fac[[1]][,1], acmtf_model$Fac[[acmtf_mode]][,1], acmtf_model$Fac[[acmtf_mode+1]][,1])
+cor(Xhat[,which(acmtf_model$Fac[[acmtf_mode]][,1] == max(acmtf_model$Fac[[acmtf_mode]][,1])),1], ACMTFmeta$mode1 %>% left_join(rf_data %>% filter(day == 14)) %>% select(Area_delta_R30) %>% pull()) # flip
+
+Xhat = parafac4microbiome::reinflateTensor(acmtfr_model$Fac[[1]][,1], acmtfr_model$Fac[[acmtf_mode]][,1], acmtfr_model$Fac[[acmtf_mode+1]][,1])
+cor(Xhat[,which(acmtfr_model$Fac[[acmtf_mode]][,1] == max(acmtfr_model$Fac[[acmtf_mode]][,1])),1], ACMTFmeta$mode1 %>% left_join(rf_data %>% filter(day == 14)) %>% select(Area_delta_R30) %>% pull()) # flip
+
+# Flip
+B = B %>% mutate(`CP (2)` = -1 * `CP (2)`, `ACMTF (1)` = -1 * `ACMTF (1)`, `ACMTF-R (1)` = -1 * `ACMTF-R (1)`)
+
+# Wrangle for plot
+B_long <- B %>%
+  pivot_longer(-asv, names_to = "Method", values_to = "Loading") %>%
+  left_join(part1 %>% as_tibble() %>% select(asv, Genus, Species)) %>%
+  left_join(part2 %>% select(asv, Genus, Species))
+
+B_long[is.na(B_long$Species), "Species"] = "sp."
+B_long$name = paste0(B_long$Genus, " ", B_long$Species)
+B_long[B_long$name == "NA sp.", "name"] = "Unknown"
+B_long$name = paste0(B_long$name, " (", B_long$asv, ")")
+
+asv_order_avg <- B_long %>%
+  group_by(name) %>%
+  summarise(mean_loading = mean(Loading)) %>%
+  arrange(desc(mean_loading)) %>%
+  pull(name)
+
+B_long <- B_long %>%
+  mutate(name = factor(name, levels = asv_order_avg)) %>%
+  mutate(Method = factor(Method, levels = c("CP (2)", "NPLS (1)", "ACMTF (1)", "ACMTF-R (1)")))
+
+ggplot(B_long, aes(x = Method, y = fct_rev(name), fill = Loading)) +
+  geom_tile(color = "white", width = 0.95, height = 0.95) +
+  scale_fill_gradient2(
+    low = "blue", mid = "white", high = "red",
+    midpoint = 0, name = "Loading"
+  ) +
+  labs(x = "Method (component number)", y = "ASV") +
+  theme_minimal(base_size = 10) +
+  theme(
+    axis.text.y = element_text(size = 6),
+    axis.text.x = element_text(size = 10, angle = 45, hjust = 1),
+    plot.title = element_text(face = "bold", size = 13, hjust = 0.5),
+    panel.grid = element_blank()
+  )
+```
+
+```{r represent features - upling}
+# Tongue
+CPmeta = processedUpling_cp
+ACMTFmeta = processedUpling_acmtf
+cp_model = cp_upling
+npls_model = npls_upling
+acmtf_mode = 8
+
+part1 = cbind(CPmeta$mode2, cp_model$Fac[[2]], npls_model$Fac[[2]])
+colnames(part1) = c("asv", "Kingdom", "Phylum", "Class", "Order", "Family", "Genus", "Species", "representative_sequence", paste0("CP (", 1:ncol(cp_model$Fac[[1]]), ")"), paste0("NPLS (", 1:ncol(npls_model$Fac[[1]]), ")"))
+part2 = cbind(ACMTFmeta$mode2, acmtf_model$Fac[[acmtf_mode]], acmtfr_model$Fac[[acmtf_mode]])
+colnames(part2) = c("asv", "Kingdom", "Phylum", "Class", "Order", "Family", "Genus", "Species", "representative_sequence", paste0("ACMTF (", 1:ncol(acmtf_model$Fac[[1]]), ")"), paste0("ACMTF-R (", 1:ncol(acmtfr_model$Fac[[1]]), ")"))
+B = part1 %>% inner_join(part2) %>% select(asv, `CP (2)`, `NPLS (1)`, `ACMTF (1)`, `ACMTF-R (1)`) %>% as_tibble()
+
+# Check if flips are needed
+cor(cp_model$Xhat[,which(cp_model$Fac[[2]][,2] == max(cp_model$Fac[[2]][,2])),2], CPmeta$mode1 %>% left_join(rf_data %>% filter(day == 14)) %>% select(Area_delta_R30) %>% pull()) # flip
+
+cor(npls_model$Xhat[,which(npls_model$Fac[[2]][,1] == max(npls_model$Fac[[2]][,1])),1], CPmeta$mode1 %>% left_join(rf_data %>% filter(day == 14)) %>% select(Area_delta_R30) %>% pull()) # no flip
+
+Xhat = parafac4microbiome::reinflateTensor(acmtf_model$Fac[[1]][,1], acmtf_model$Fac[[acmtf_mode]][,1], acmtf_model$Fac[[acmtf_mode+1]][,1])
+cor(Xhat[,which(acmtf_model$Fac[[acmtf_mode]][,1] == max(acmtf_model$Fac[[acmtf_mode]][,1])),1], ACMTFmeta$mode1 %>% left_join(rf_data %>% filter(day == 14)) %>% select(Area_delta_R30) %>% pull()) # no flip
+
+Xhat = parafac4microbiome::reinflateTensor(acmtfr_model$Fac[[1]][,1], acmtfr_model$Fac[[acmtf_mode]][,1], acmtfr_model$Fac[[acmtf_mode+1]][,1])
+cor(Xhat[,which(acmtfr_model$Fac[[acmtf_mode]][,1] == max(acmtfr_model$Fac[[acmtf_mode]][,1])),1], ACMTFmeta$mode1 %>% left_join(rf_data %>% filter(day == 14)) %>% select(Area_delta_R30) %>% pull()) # no flip
+
+# Flip
+B = B %>% mutate(`CP (2)` = -1 * `CP (2)`)
+
+# Wrangle for plot
+B_long <- B %>%
+  pivot_longer(-asv, names_to = "Method", values_to = "Loading") %>%
+  left_join(part1 %>% as_tibble() %>% select(asv, Genus, Species)) %>%
+  left_join(part2 %>% select(asv, Genus, Species))
+
+B_long[is.na(B_long$Species), "Species"] = "sp."
+B_long$name = paste0(B_long$Genus, " ", B_long$Species)
+B_long[B_long$name == "NA sp.", "name"] = "Unknown"
+B_long$name = paste0(B_long$name, " (", B_long$asv, ")")
+
+asv_order_avg <- B_long %>%
+  group_by(name) %>%
+  summarise(mean_loading = mean(Loading)) %>%
+  arrange(desc(mean_loading)) %>%
+  pull(name)
+
+B_long <- B_long %>%
+  mutate(name = factor(name, levels = asv_order_avg)) %>%
+  mutate(Method = factor(Method, levels = c("CP (2)", "NPLS (1)", "ACMTF (1)", "ACMTF-R (1)")))
+
+ggplot(B_long, aes(x = Method, y = fct_rev(name), fill = Loading)) +
+  geom_tile(color = "white", width = 0.95, height = 0.95) +
+  scale_fill_gradient2(
+    low = "blue", mid = "white", high = "red",
+    midpoint = 0, name = "Loading"
+  ) +
+  labs(x = "Method (component number)", y = "ASV") +
+  theme_minimal(base_size = 10) +
+  theme(
+    axis.text.y = element_text(size = 6),
+    axis.text.x = element_text(size = 10, angle = 45, hjust = 1),
+    plot.title = element_text(face = "bold", size = 13, hjust = 0.5),
+    panel.grid = element_blank()
+  )
+```
+
+```{r represent features - upinter}
+# Tongue
+CPmeta = processedUpinter_cp
+ACMTFmeta = processedUpinter_acmtf
+cp_model = cp_upinter
+npls_model = npls_upinter
+acmtf_mode = 10
+
+part1 = cbind(CPmeta$mode2, cp_model$Fac[[2]], npls_model$Fac[[2]])
+colnames(part1) = c("asv", "Kingdom", "Phylum", "Class", "Order", "Family", "Genus", "Species", "representative_sequence", paste0("CP (", 1:ncol(cp_model$Fac[[1]]), ")"), paste0("NPLS (", 1:ncol(npls_model$Fac[[1]]), ")"))
+part2 = cbind(ACMTFmeta$mode2, acmtf_model$Fac[[acmtf_mode]], acmtfr_model$Fac[[acmtf_mode]])
+colnames(part2) = c("asv", "Kingdom", "Phylum", "Class", "Order", "Family", "Genus", "Species", "representative_sequence", paste0("ACMTF (", 1:ncol(acmtf_model$Fac[[1]]), ")"), paste0("ACMTF-R (", 1:ncol(acmtfr_model$Fac[[1]]), ")"))
+B = part1 %>% inner_join(part2) %>% select(asv, `CP (1)`, `NPLS (1)`, `ACMTF (1)`, `ACMTF-R (1)`) %>% as_tibble()
+
+# Check if flips are needed
+cor(cp_model$Xhat[,which(cp_model$Fac[[2]][,1] == max(cp_model$Fac[[2]][,1])),2], CPmeta$mode1 %>% left_join(rf_data %>% filter(day == 14)) %>% select(Area_delta_R30) %>% pull()) # flip
+
+cor(npls_model$Xhat[,which(npls_model$Fac[[2]][,1] == max(npls_model$Fac[[2]][,1])),1], CPmeta$mode1 %>% left_join(rf_data %>% filter(day == 14)) %>% select(Area_delta_R30) %>% pull()) # no flip
+
+Xhat = parafac4microbiome::reinflateTensor(acmtf_model$Fac[[1]][,1], acmtf_model$Fac[[acmtf_mode]][,1], acmtf_model$Fac[[acmtf_mode+1]][,1])
+cor(Xhat[,which(acmtf_model$Fac[[acmtf_mode]][,1] == max(acmtf_model$Fac[[acmtf_mode]][,1])),1], ACMTFmeta$mode1 %>% left_join(rf_data %>% filter(day == 14)) %>% select(Area_delta_R30) %>% pull()) # flip
+
+Xhat = parafac4microbiome::reinflateTensor(acmtfr_model$Fac[[1]][,1], acmtfr_model$Fac[[acmtf_mode]][,1], acmtfr_model$Fac[[acmtf_mode+1]][,1])
+cor(Xhat[,which(acmtfr_model$Fac[[acmtf_mode]][,1] == max(acmtfr_model$Fac[[acmtf_mode]][,1])),1], ACMTFmeta$mode1 %>% left_join(rf_data %>% filter(day == 14)) %>% select(Area_delta_R30) %>% pull()) # flip
+
+# Flip
+B = B %>% mutate(`CP (1)` = -1 * `CP (1)`, `ACMTF (1)` = -1 * `ACMTF (1)`, `ACMTF-R (1)` = -1 * `ACMTF-R (1)`)
+
+# Wrangle for plot
+B_long <- B %>%
+  pivot_longer(-asv, names_to = "Method", values_to = "Loading") %>%
+  left_join(part1 %>% as_tibble() %>% select(asv, Genus, Species)) %>%
+  left_join(part2 %>% select(asv, Genus, Species))
+
+B_long[is.na(B_long$Species), "Species"] = "sp."
+B_long$name = paste0(B_long$Genus, " ", B_long$Species)
+B_long[B_long$name == "NA sp.", "name"] = "Unknown"
+B_long$name = paste0(B_long$name, " (", B_long$asv, ")")
+
+asv_order_avg <- B_long %>%
+  group_by(name) %>%
+  summarise(mean_loading = mean(Loading)) %>%
+  arrange(desc(mean_loading)) %>%
+  pull(name)
+
+B_long <- B_long %>%
+  mutate(name = factor(name, levels = asv_order_avg)) %>%
+  mutate(Method = factor(Method, levels = c("CP (1)", "NPLS (1)", "ACMTF (1)", "ACMTF-R (1)")))
+
+ggplot(B_long, aes(x = Method, y = fct_rev(name), fill = Loading)) +
+  geom_tile(color = "white", width = 0.95, height = 0.95) +
+  scale_fill_gradient2(
+    low = "blue", mid = "white", high = "red",
+    midpoint = 0, name = "Loading"
+  ) +
+  labs(x = "Method (component number)", y = "ASV") +
+  theme_minimal(base_size = 10) +
+  theme(
+    axis.text.y = element_text(size = 6),
+    axis.text.x = element_text(size = 10, angle = 45, hjust = 1),
+    plot.title = element_text(face = "bold", size = 13, hjust = 0.5),
+    panel.grid = element_blank()
+  )
+```
+
+```{r represent features - saliva}
+# Tongue
+CPmeta = processedSaliva_cp
+ACMTFmeta = processedSaliva_acmtf
+cp_model = cp_saliva
+npls_model = npls_saliva
+acmtf_mode = 12
+
+part1 = cbind(CPmeta$mode2, cp_model$Fac[[2]], npls_model$Fac[[2]])
+colnames(part1) = c("asv", "Kingdom", "Phylum", "Class", "Order", "Family", "Genus", "Species", "representative_sequence", paste0("CP (", 1:ncol(cp_model$Fac[[1]]), ")"), paste0("NPLS (", 1:ncol(npls_model$Fac[[1]]), ")"))
+part2 = cbind(ACMTFmeta$mode2, acmtf_model$Fac[[acmtf_mode]], acmtfr_model$Fac[[acmtf_mode]])
+colnames(part2) = c("asv", "Kingdom", "Phylum", "Class", "Order", "Family", "Genus", "Species", "representative_sequence", paste0("ACMTF (", 1:ncol(acmtf_model$Fac[[1]]), ")"), paste0("ACMTF-R (", 1:ncol(acmtfr_model$Fac[[1]]), ")"))
+B = part1 %>% inner_join(part2) %>% select(asv, `NPLS (1)`, `ACMTF (1)`, `ACMTF-R (1)`) %>% as_tibble()
+
+# Check if flips are needed
+cor(npls_model$Xhat[,which(npls_model$Fac[[2]][,1] == max(npls_model$Fac[[2]][,1])),1], CPmeta$mode1 %>% left_join(rf_data %>% filter(day == 14)) %>% select(Area_delta_R30) %>% pull()) # no flip
+
+Xhat = parafac4microbiome::reinflateTensor(acmtf_model$Fac[[1]][,1], acmtf_model$Fac[[acmtf_mode]][,1], acmtf_model$Fac[[acmtf_mode+1]][,1])
+cor(Xhat[,which(acmtf_model$Fac[[acmtf_mode]][,1] == max(acmtf_model$Fac[[acmtf_mode]][,1])),1], ACMTFmeta$mode1 %>% left_join(rf_data %>% filter(day == 14)) %>% select(Area_delta_R30) %>% pull()) # no flip
+
+Xhat = parafac4microbiome::reinflateTensor(acmtfr_model$Fac[[1]][,1], acmtfr_model$Fac[[acmtf_mode]][,1], acmtfr_model$Fac[[acmtf_mode+1]][,1])
+cor(Xhat[,which(acmtfr_model$Fac[[acmtf_mode]][,1] == max(acmtfr_model$Fac[[acmtf_mode]][,1])),1], ACMTFmeta$mode1 %>% left_join(rf_data %>% filter(day == 14)) %>% select(Area_delta_R30) %>% pull()) # flip
+
+# Flip
+B = B %>% mutate(`ACMTF-R (1)` = -1 * `ACMTF-R (1)`)
+
+# Wrangle for plot
+B_long <- B %>%
+  pivot_longer(-asv, names_to = "Method", values_to = "Loading") %>%
+  left_join(part1 %>% as_tibble() %>% select(asv, Genus, Species)) %>%
+  left_join(part2 %>% select(asv, Genus, Species))
+
+B_long[is.na(B_long$Species), "Species"] = "sp."
+B_long$name = paste0(B_long$Genus, " ", B_long$Species)
+B_long[B_long$name == "NA sp.", "name"] = "Unknown"
+B_long$name = paste0(B_long$name, " (", B_long$asv, ")")
+
+asv_order_avg <- B_long %>%
+  group_by(name) %>%
+  summarise(mean_loading = mean(Loading)) %>%
+  arrange(desc(mean_loading)) %>%
+  pull(name)
+
+B_long <- B_long %>%
+  mutate(name = factor(name, levels = asv_order_avg)) %>%
+  mutate(Method = factor(Method, levels = c("NPLS (1)", "ACMTF (1)", "ACMTF-R (1)")))
+
+ggplot(B_long, aes(x = Method, y = fct_rev(name), fill = Loading)) +
+  geom_tile(color = "white", width = 0.95, height = 0.95) +
+  scale_fill_gradient2(
+    low = "blue", mid = "white", high = "red",
+    midpoint = 0, name = "Loading"
+  ) +
+  labs(x = "Method (component number)", y = "ASV") +
+  theme_minimal(base_size = 10) +
+  theme(
+    axis.text.y = element_text(size = 6),
+    axis.text.x = element_text(size = 10, angle = 45, hjust = 1),
+    plot.title = element_text(face = "bold", size = 13, hjust = 0.5),
+    panel.grid = element_blank()
+  )
+```
+
+```{r represent features - metabolomics}
+loading_threshold <- 0.04
+
+# Tongue
+CPmeta = processedMetabolomics_cp
+ACMTFmeta = processedMetabolomics_acmtf
+cp_model = cp_metabolomics
+npls_model = npls_metab
+acmtf_mode = 14
+
+part1 = cbind(CPmeta$mode2, cp_model$Fac[[2]], npls_model$Fac[[2]])
+colnames(part1) = c("Type", "Function", "Name", paste0("CP (", 1:ncol(cp_model$Fac[[1]]), ")"), paste0("NPLS (", 1:ncol(npls_model$Fac[[1]]), ")"))
+part2 = cbind(ACMTFmeta$mode2, acmtf_model$Fac[[acmtf_mode]], acmtfr_model$Fac[[acmtf_mode]])
+colnames(part2) = c("Type", "Function", "Name", paste0("ACMTF (", 1:ncol(acmtf_model$Fac[[1]]), ")"), paste0("ACMTF-R (", 1:ncol(acmtfr_model$Fac[[1]]), ")"))
+B = part1 %>% inner_join(part2) %>% select(Name, `NPLS (1)`, `ACMTF (1)`, `ACMTF-R (1)`) %>% as_tibble()
+
+# Check if flips are needed
+cor(npls_model$Xhat[,which(npls_model$Fac[[2]][,1] == max(npls_model$Fac[[2]][,1])),1], CPmeta$mode1 %>% left_join(rf_data %>% filter(day == 14)) %>% select(Area_delta_R30) %>% pull()) # no flip
+
+Xhat = parafac4microbiome::reinflateTensor(acmtf_model$Fac[[1]][,1], acmtf_model$Fac[[acmtf_mode]][,1], acmtf_model$Fac[[acmtf_mode+1]][,1])
+cor(Xhat[,which(acmtf_model$Fac[[acmtf_mode]][,1] == max(acmtf_model$Fac[[acmtf_mode]][,1])),1], ACMTFmeta$mode1 %>% left_join(rf_data %>% filter(day == 14)) %>% select(Area_delta_R30) %>% pull()) # flip
+
+Xhat = parafac4microbiome::reinflateTensor(acmtfr_model$Fac[[1]][,1], acmtfr_model$Fac[[acmtf_mode]][,1], acmtfr_model$Fac[[acmtf_mode+1]][,1])
+cor(Xhat[,which(acmtfr_model$Fac[[acmtf_mode]][,1] == max(acmtfr_model$Fac[[acmtf_mode]][,1])),1], ACMTFmeta$mode1 %>% left_join(rf_data %>% filter(day == 14)) %>% select(Area_delta_R30) %>% pull()) # no flip
+
+# Flip
+B = B %>% mutate(`ACMTF (1)` = -1 * `ACMTF (1)`)
+
+# Wrangle for plot
+B_long <- B %>%
+  pivot_longer(-Name, names_to = "Method", values_to = "Loading")
+
+asv_order_avg <- B_long %>%
+  group_by(Name) %>%
+  summarise(mean_loading = mean(Loading)) %>%
+  arrange(desc(mean_loading)) %>%
+  pull(Name)
+
+B_long <- B_long %>%
+  mutate(Name = factor(Name, levels = asv_order_avg)) %>%
+  mutate(Method = factor(Method, levels = c("NPLS (1)", "ACMTF (1)", "ACMTF-R (1)")))
+
+# Compute mean loading per metabolite
+mean_loading_df <- B_long %>%
+  group_by(Name) %>%
+  summarise(mean_loading = mean(Loading)) %>%
+  filter(abs(mean_loading) > loading_threshold) %>%
+  arrange(desc(mean_loading))
+
+# Use only metabolites above threshold
+B_long_filtered <- B_long %>%
+  filter(Name %in% mean_loading_df$Name) %>%
+  mutate(Name = factor(Name, levels = mean_loading_df$Name)) %>%
+  mutate(Method = factor(Method, levels = c("NPLS (1)", "ACMTF (1)", "ACMTF-R (1)")))
+
+ggplot(B_long_filtered, aes(x = Method, y = fct_rev(Name), fill = Loading)) +
+  geom_tile(color = "white", width = 0.95, height = 0.95) +
+  scale_fill_gradient2(
+    low = "blue", mid = "white", high = "red",
+    midpoint = 0, name = "Loading"
+  ) +
+  labs(x = "Method (component number)", y = "Metabolite") +
+  theme_minimal(base_size = 10) +
+  theme(
+    axis.text.y = element_text(size = 6),
+    axis.text.x = element_text(size = 10, angle = 45, hjust = 1),
+    plot.title = element_text(face = "bold", size = 13, hjust = 0.5),
+    panel.grid = element_blank()
+  )
+
+```

@@ -1,0 +1,1095 @@
+---
+title: "GOHTRANS"
+output: html_document
+date: "2025-05-19"
+---
+
+```{r setup}
+library(tidyverse)
+library(ggplot2)
+library(ggpubr)
+library(stringr)
+library(parafac4microbiome)
+library(NPLStoolbox)
+library(CMTFtoolbox)
+library(vegan)
+library(scales)
+library(ggrepel)
+```
+
+# Import metadata
+```{r import metadata}
+ph_BOMP = read_delim("./GOH-TRANS_export_20240205.csv",
+                     delim = ";", escape_double = FALSE, trim_ws = TRUE) %>% as_tibble()
+
+df1 = ph_BOMP %>% select(`Participant Id`, starts_with("5.")) %>% mutate(subject = 1:42, numTeeth = `5.1|Number of teeth`, DMFT = `5.2|DMFT`, numBleedingSites = `5.3|Bleeding sites`, boppercent = `5.4|BOP%`, DPSI = `5.5|DPSI`, pH = `5.8|pH`) %>% select(subject, numTeeth, DMFT, numBleedingSites, boppercent, DPSI, pH)
+df2 = ph_BOMP %>% select(`Participant Id`, starts_with("12.")) %>% mutate(subject = 1:42, numTeeth = `12.1|Number of teeth`, DMFT = `12.2|DMFT`, numBleedingSites = `12.3|Bleeding sites`, boppercent = `12.4|BOP%`, DPSI = `12.5|DPSI`, pH = `12.8|pH`) %>% select(subject, numTeeth, DMFT, numBleedingSites, boppercent, DPSI, pH)
+df3 = ph_BOMP %>% select(`Participant Id`, starts_with("19.")) %>% mutate(subject = 1:42, numTeeth = `19.1|Number of teeth`, DMFT = `19.2|DMFT`, numBleedingSites = `19.3|Bleeding sites`, boppercent = `19.4|BOP%`, DPSI = `19.5|DPSI`, pH = `19.8|pH`) %>% select(subject, numTeeth, DMFT, numBleedingSites, boppercent, DPSI, pH)
+df4 = ph_BOMP %>% select(`Participant Id`, starts_with("26.")) %>% mutate(subject = 1:42, numTeeth = `26.1|Number of teeth`, DMFT = `26.2|DMFT`, numBleedingSites = `26.3|Bleeding sites`, boppercent = `26.4|BOP%`, DPSI = `26.5|DPSI`, pH = `26.8|pH`) %>% select(subject, numTeeth, DMFT, numBleedingSites, boppercent, DPSI, pH)
+
+otherMeta = rbind(df1, df2, df3, df4) %>% as_tibble() %>% mutate(newTimepoint = rep(c(0,3,6,12), each=42))
+otherMeta = otherMeta %>% select(subject, newTimepoint, boppercent)
+
+saliva_sampleMeta = read.csv("./sampleInfo_fixed.csv", sep=" ") %>% as_tibble() %>% select(subject, GenderID, Age, newTimepoint, Free_testosterone_Vermeulen_pmol_L, Estradiol_pmol_ml, LH_U_L, SHBG_nmol_L)
+
+# CODS XI
+df = read.csv("./CODS_XI.csv")
+df = df[1:40,1:10] %>% as_tibble() %>% filter(Participant_code %in% saliva_sampleMeta$subject)
+
+CODS = df %>% select(Participant_code, CODS_BASELINE, CODS_3_MONTHS, CODS_6_MONTHS, CODS_12_MONTHS) %>% pivot_longer(-Participant_code) %>% mutate(timepoint = NA)
+CODS[CODS$name == "CODS_BASELINE", "timepoint"] = 0
+CODS[CODS$name == "CODS_3_MONTHS", "timepoint"] = 3
+CODS[CODS$name == "CODS_6_MONTHS", "timepoint"] = 6
+CODS[CODS$name == "CODS_12_MONTHS", "timepoint"] = 12
+CODS[CODS$value == -99, "value"] = NA
+CODS = CODS %>% mutate(subject = Participant_code, newTimepoint = timepoint, CODS = value) %>% select(-Participant_code, -name, -value, -timepoint)
+
+XI = df %>% select(Participant_code, XI_BASELINE, XI_3_MONTHS, XI_6_MONTHS, XI_12_MONTHS) %>% pivot_longer(-Participant_code) %>% mutate(timepoint = NA)
+XI[XI$name == "XI_BASELINE", "timepoint"] = 0
+XI[XI$name == "XI_3_MONTHS", "timepoint"] = 3
+XI[XI$name == "XI_6_MONTHS", "timepoint"] = 6
+XI[XI$name == "XI_12_MONTHS", "timepoint"] = 12
+XI[XI$value == -99, "value"] = NA
+XI = XI %>% mutate(subject = Participant_code, newTimepoint = timepoint, XI = value) %>% select(-Participant_code, -name, -value, -timepoint)
+
+df = otherMeta %>% left_join(CODS) %>% left_join(XI) %>% select(subject, newTimepoint, boppercent, CODS, XI) %>% filter(newTimepoint != "NA")
+
+meta = df %>% left_join(otherMeta) %>% left_join(saliva_sampleMeta) %>% filter(newTimepoint==12) %>% unique() %>% select(-newTimepoint)
+meta[meta < 0] <- NA
+
+newTesto = residuals(lm(Free_testosterone_Vermeulen_pmol_L ~ Estradiol_pmol_ml + LH_U_L + SHBG_nmol_L + boppercent + GenderID + Age + CODS + XI, data=meta, na.action=na.exclude))
+newEstra = residuals(lm(Estradiol_pmol_ml ~ Free_testosterone_Vermeulen_pmol_L + LH_U_L + SHBG_nmol_L + boppercent + GenderID + Age + CODS + XI, data=meta, na.action=na.exclude))
+newLH = residuals(lm(LH_U_L ~ Free_testosterone_Vermeulen_pmol_L + Estradiol_pmol_ml + SHBG_nmol_L + boppercent + GenderID + Age + CODS + XI, data=meta, na.action=na.exclude))
+newSHBG = residuals(lm(SHBG_nmol_L ~ Free_testosterone_Vermeulen_pmol_L + Estradiol_pmol_ml + LH_U_L + boppercent + GenderID + Age + CODS + XI, data=meta, na.action=na.exclude))
+newBOP = residuals(lm(boppercent ~ Free_testosterone_Vermeulen_pmol_L + Estradiol_pmol_ml + LH_U_L + SHBG_nmol_L + GenderID + Age + CODS + XI, data=meta, na.action=na.exclude))
+newCODS= residuals(lm(CODS ~ Free_testosterone_Vermeulen_pmol_L + Estradiol_pmol_ml + LH_U_L + SHBG_nmol_L + boppercent + GenderID + Age + XI, data=meta, na.action=na.exclude))
+newXI = residuals(lm(XI ~ Free_testosterone_Vermeulen_pmol_L + Estradiol_pmol_ml + LH_U_L + SHBG_nmol_L + boppercent + GenderID + Age + CODS, data=meta, na.action=na.exclude))
+
+meta = meta %>% mutate(boppercent = newBOP, CODS = newCODS, XI = newXI, Free_testosterone_Vermeulen_pmol_L=newTesto, Estradiol_pmol_ml=newEstra, LH_U_L=newLH, SHBG_nmol_L=newSHBG)
+```
+
+# Functions
+
+```{r metadata testing}
+prepMetadata = function(model, metadata){
+  longA = parafac4microbiome::transformPARAFACloadings(model$Fac, 2, moreOutput = TRUE)$F
+  df = longA %>% as_tibble() %>% mutate(subject=as.integer(rep(metadata$mode1$subject, each=nrow(metadata$mode3))), newTimepoint = rep(metadata$mode3$newTimepoint, nrow(metadata$mode1))) %>% left_join(Cornejo2025$Blood_hormones) %>% left_join(Cornejo2025$Clinical_measurements)
+  
+  newTesto = residuals(lm(Free_testosterone_Vermeulen_pmol_L ~ Estradiol_pmol_ml + LH_U_L + SHBG_nmol_L + boppercent + pH + GenderID + Age, data=df, na.action=na.exclude))
+  newEstra = residuals(lm(Estradiol_pmol_ml ~ Free_testosterone_Vermeulen_pmol_L + LH_U_L + SHBG_nmol_L + boppercent + pH + GenderID + Age, data=df, na.action=na.exclude))
+  newLH = residuals(lm(LH_U_L ~ Free_testosterone_Vermeulen_pmol_L + Estradiol_pmol_ml + SHBG_nmol_L + boppercent + pH + GenderID + Age, data=df, na.action=na.exclude))
+  newSHBG = residuals(lm(SHBG_nmol_L ~ Free_testosterone_Vermeulen_pmol_L + Estradiol_pmol_ml + LH_U_L + boppercent + pH + GenderID + Age, data=df, na.action=na.exclude))
+  newBOP = residuals(lm(boppercent ~ Free_testosterone_Vermeulen_pmol_L + Estradiol_pmol_ml + LH_U_L + SHBG_nmol_L + pH + GenderID + Age, data=df, na.action=na.exclude))
+  newPH = residuals(lm(pH ~ Free_testosterone_Vermeulen_pmol_L + Estradiol_pmol_ml + LH_U_L + SHBG_nmol_L + boppercent + GenderID + Age, data=df, na.action=na.exclude))
+  
+  df$Free_testosterone_Vermeulen_pmol_L = newTesto
+  df$Estradiol_pmol_ml = newEstra
+  df$LH_U_L = newLH
+  df$SHBG_nmol_L = newSHBG
+  df$boppercent = newBOP
+  df$pH = newPH
+  df$GenderID = as.numeric(as.factor(df$GenderID))
+  
+  return(df)
+}
+```
+
+# Blood hormone levels
+
+```{r circulatory hormone levels}
+df = rTensor::k_unfold(rTensor::as.tensor(Cornejo2025$Circulatory_hormones$data), 2)@data %>%
+  t() %>%
+  as_tibble() %>%
+  mutate(newTimepoint = rep(c(0,3,12), each=39), genderID = rep(Cornejo2025$Circulatory_hormones$mode1$GenderID,3), subject = rep(Cornejo2025$Circulatory_hormones$mode1$subject, 3))
+
+colnames(df) = c(Cornejo2025$Circulatory_hormones$mode2$V1, "newTimepoint", "GenderID", "subject")
+
+a =df %>% filter(GenderID=="TM", newTimepoint != 6) %>% ggplot(aes(x=newTimepoint,y=Free_testosterone_Vermeulen_pmol_L)) + geom_boxplot(aes(group=newTimepoint),fill="#5BCEFA") + geom_line(aes(group=subject),alpha=0.25) + geom_point() + xlab("Time point [months]") + ylab("Free testosterone\n [pmol/L]") + scale_x_continuous(breaks=c(0,3,12)) + theme(text=element_text(size=16))
+b = df %>% filter(GenderID=="TW", newTimepoint != 6) %>% ggplot(aes(x=newTimepoint,y=Free_testosterone_Vermeulen_pmol_L)) + geom_boxplot(aes(group=newTimepoint),fill="#F5A9B8") + geom_line(aes(group=subject),alpha=0.25) + geom_point() + xlab("Time point [months]") + ylab("Free testosterone\n [pmol/L]") + scale_x_continuous(breaks=c(0,3,12)) + theme(text=element_text(size=16))
+
+c = df %>% filter(GenderID=="TM", newTimepoint != 6) %>% ggplot(aes(x=newTimepoint,y=Estradiol_pmol_ml)) + geom_boxplot(aes(group=newTimepoint),fill="#5BCEFA") + geom_line(aes(group=subject),alpha=0.25) + geom_point() + xlab("Time point [months]") + ylab("Estradiol\n [pmol/L]") + scale_x_continuous(breaks=c(0,3,12)) + theme(text=element_text(size=16))
+d = df %>% filter(GenderID=="TW", newTimepoint != 6) %>% ggplot(aes(x=newTimepoint,y=Estradiol_pmol_ml)) + geom_boxplot(aes(group=newTimepoint),fill="#F5A9B8") + geom_line(aes(group=subject),alpha=0.25) + geom_point() + xlab("Time point [months]") + ylab("Estradiol\n [pmol/L]") + scale_x_continuous(breaks=c(0,3,12)) + theme(text=element_text(size=16))
+
+e = df %>% filter(GenderID=="TM", newTimepoint != 6) %>% ggplot(aes(x=newTimepoint,y=LH_U_L)) + geom_boxplot(aes(group=newTimepoint),fill="#5BCEFA") + geom_line(aes(group=subject),alpha=0.25) + geom_point() + xlab("Time point [months]") + ylab("LH [U/L]") + theme(text=element_text(size=16))
+f = df %>% filter(GenderID=="TW", newTimepoint != 6) %>% ggplot(aes(x=newTimepoint,y=LH_U_L)) + geom_boxplot(aes(group=newTimepoint),fill="#F5A9B8") + geom_line(aes(group=subject),alpha=0.25) + geom_point() + xlab("Time point [months]") + ylab("LH [U/L]") + theme(text=element_text(size=16))
+
+g = df %>% filter(GenderID=="TM", newTimepoint != 6) %>% ggplot(aes(x=newTimepoint,y=SHBG_nmol_L)) + geom_boxplot(aes(group=newTimepoint),fill="#5BCEFA") + geom_line(aes(group=subject),alpha=0.25) + geom_point() + xlab("Time point [months]") + ylab("SHBG\n [nmol/L]") + theme(text=element_text(size=16))
+h = df %>% filter(GenderID=="TW", newTimepoint != 6) %>% ggplot(aes(x=newTimepoint,y=SHBG_nmol_L)) + geom_boxplot(aes(group=newTimepoint),fill="#F5A9B8") + geom_line(aes(group=subject),alpha=0.25) + geom_point() + xlab("Time point [months]") + ylab("SHBG\n [nmol/L]") + theme(text=element_text(size=16))
+
+ggarrange(a,b,c,d,e,f,g,h, nrow=4, ncol=2)
+```
+
+# CP
+
+```{r processing}
+processedTongue = processDataCube(NPLStoolbox::Cornejo2025$Tongue_microbiome, sparsityThreshold = 0.5, considerGroups=TRUE, groupVariable="GenderID", CLR=TRUE, centerMode=1, scaleMode=2)
+processedSaliva = processDataCube(NPLStoolbox::Cornejo2025$Salivary_microbiome, sparsityThreshold = 0.5, considerGroups=TRUE, groupVariable="GenderID", CLR=TRUE, centerMode=1, scaleMode=2)
+
+processedCytokines = NPLStoolbox::Cornejo2025$Salivary_cytokines
+processedCytokines$data = log(processedCytokines$data + 0.1300)
+# Remove subject 1, 18, 19, and 27 due to being an outlier
+processedCytokines$data = processedCytokines$data[-c(1,9,10,19),,]
+processedCytokines$mode1 = processedCytokines$mode1[-c(1,9,10,19),]
+processedCytokines$data = multiwayCenter(processedCytokines$data, 1)
+processedCytokines$data = multiwayScale(processedCytokines$data, 2)
+
+processedBiochemistry = NPLStoolbox::Cornejo2025$Salivary_biochemistry
+processedBiochemistry$data = log(processedBiochemistry$data)
+processedBiochemistry$data = multiwayCenter(processedBiochemistry$data, 1)
+processedBiochemistry$data = multiwayScale(processedBiochemistry$data, 2)
+```
+
+```{r cp assess num components}
+# assessment_tongue = parafac4microbiome::assessModelQuality(processedTongue$data, numRepetitions=10, numCores=10)
+# assessment_tongue$plots$overview # 1 or 2?
+# 
+# assessment_saliva = parafac4microbiome::assessModelQuality(processedSaliva$data, numRepetitions=10, numCores=10)
+# assessment_saliva$plots$overview # def 2
+# 
+# assessment_cytokines = parafac4microbiome::assessModelQuality(processedCytokines$data, numRepetitions=10, numCores=10)
+# assessment_cytokines$plots$overview # def 2
+# 
+# assessment_biochemistry = parafac4microbiome::assessModelQuality(processedBiochemistry$data, numRepetitions=10, numCores=10)
+# assessment_biochemistry$plots$overview # 2 or 3?
+#
+# saveRDS(assessment_tongue, "./CP_assessment_tongue.RDS")
+# saveRDS(assessment_saliva, "./CP_assessment_saliva.RDS")
+# saveRDS(assessment_cytokines, "./CP_assessment_cytokines.RDS")
+# saveRDS(assessment_biochemistry, "./CP_assessment_biochemistry.RDS")
+
+assessment_tongue = readRDS("./CP_assessment_tongue.RDS")
+assessment_saliva = readRDS("./CP_assessment_saliva.RDS")
+assessment_cytokines = readRDS("./CP_assessment_cytokines.RDS")
+assessment_biochemistry = readRDS("./CP_assessment_biochemistry.RDS")
+
+a = assessment_tongue$metrics$CORCONDIA %>% as_tibble() %>% mutate(index=1:nrow(.)) %>% pivot_longer(-index) %>% ggplot(aes(x=as.factor(name),y=value)) + geom_boxplot() + xlab("Number of components") + ylab("CORCONDIA") + theme(text=element_text(size=16))
+b = assessment_saliva$metrics$CORCONDIA %>% as_tibble() %>% mutate(index=1:nrow(.)) %>% pivot_longer(-index) %>% ggplot(aes(x=as.factor(name),y=value)) + geom_boxplot() + xlab("Number of components") + ylab("CORCONDIA") + theme(text=element_text(size=16))
+c = assessment_cytokines$metrics$CORCONDIA %>% as_tibble() %>% mutate(index=1:nrow(.)) %>% pivot_longer(-index) %>% ggplot(aes(x=as.factor(name),y=value)) + geom_boxplot() + xlab("Number of components") + ylab("CORCONDIA") + theme(text=element_text(size=16))
+d = assessment_biochemistry$metrics$CORCONDIA %>% as_tibble() %>% mutate(index=1:nrow(.)) %>% pivot_longer(-index) %>% ggplot(aes(x=as.factor(name),y=value)) + geom_boxplot() + xlab("Number of components") + ylab("CORCONDIA") + theme(text=element_text(size=16))
+ggarrange(a,b,c,d)
+```
+
+```{r cp stability num components}
+colourCols = c("", "", "")
+legendTitles = c("", "", "")
+xLabels = c("Subject index", "Feature index", "Time index")
+legendColNums = c(2,5,0)
+arrangeModes = c(FALSE, FALSE, FALSE)
+continuousModes = c(FALSE,FALSE,TRUE)
+
+stability_tongue = parafac4microbiome::assessModelStability(processedTongue, maxNumComponents=3, numFolds=10, colourCols=colourCols, legendTitles=legendTitles, xLabels = xLabels, legendColNums=legendColNums, arrangeModes=arrangeModes, numCores=parallel::detectCores())
+stability_tongue$modelPlots[[2]]
+stability_tongue$modelPlots[[3]]
+
+stability_saliva = parafac4microbiome::assessModelStability(processedSaliva, maxNumComponents=3, numFolds=10, colourCols=colourCols, legendTitles=legendTitles, xLabels = xLabels, legendColNums=legendColNums, arrangeModes=arrangeModes, numCores=parallel::detectCores())
+stability_saliva$modelPlots[[2]]
+stability_saliva$modelPlots[[2]]
+
+stability_cytokines = parafac4microbiome::assessModelStability(processedCytokines, maxNumComponents=3, numFolds=10, colourCols=colourCols, legendTitles=legendTitles, xLabels = xLabels, legendColNums=legendColNums, arrangeModes=arrangeModes, numCores=parallel::detectCores())
+stability_cytokines$modelPlots[[2]]
+stability_cytokines$modelPlots[[3]]
+
+stability_biochemistry = parafac4microbiome::assessModelStability(processedBiochemistry, maxNumComponents=3, numFolds=10, colourCols=colourCols, legendTitles=legendTitles, xLabels = xLabels, legendColNums=legendColNums, arrangeModes=arrangeModes, numCores=parallel::detectCores())
+stability_biochemistry$modelPlots[[2]]
+stability_biochemistry$modelPlots[[3]]
+```
+
+```{r make cp models}
+# cp_tongue = parafac4microbiome::parafac(processedTongue$data, nfac=2, nstart=100)
+# cp_saliva = parafac4microbiome::parafac(processedSaliva$data, nfac=2, nstart=100)
+# cp_cytokines = parafac4microbiome::parafac(processedCytokines$data, nfac=2, nstart=100)
+# cp_biochemistry = parafac4microbiome::parafac(processedBiochemistry$data, nfac=2, nstart=100)
+# 
+# saveRDS(cp_tongue, "./cp_tongue.RDS")
+# saveRDS(cp_saliva, "./cp_saliva.RDS")
+# saveRDS(cp_cytokines, "./cp_cytokines.RDS")
+# saveRDS(cp_biochemistry, "./cp_biochemistry.RDS")
+
+cp_tongue = readRDS("./cp_tongue.RDS")
+cp_saliva = readRDS("./cp_saliva.RDS")
+cp_cytokines = readRDS("./cp_cytokines.RDS")
+cp_biochemistry = readRDS("./cp_biochemistry.RDS")
+```
+
+```{r check for score outliers}
+cp_tongue$Fac[[1]] %>% as_tibble() %>% mutate(index=1:nrow(.)) %>% pivot_longer(-index) %>% ggplot(aes(x=value)) + facet_wrap(~name) + geom_histogram()
+cp_saliva$Fac[[1]] %>% as_tibble() %>% mutate(index=1:nrow(.)) %>% pivot_longer(-index) %>% ggplot(aes(x=value)) + facet_wrap(~name) + geom_histogram()
+cp_cytokines$Fac[[1]] %>% as_tibble() %>% mutate(index=1:nrow(.)) %>% pivot_longer(-index) %>% ggplot(aes(x=value)) + facet_wrap(~name) + geom_histogram()
+cp_biochemistry$Fac[[1]] %>% as_tibble() %>% mutate(index=1:nrow(.)) %>% pivot_longer(-index) %>% ggplot(aes(x=value)) + facet_wrap(~name) + geom_histogram()
+```
+
+```{r cp subject metadata test}
+# Tongue
+df = processedTongue$mode1 %>% mutate(subject=as.integer(subject),V1=cp_tongue$Fac[[1]][,1],V2=cp_tongue$Fac[[1]][,2]) %>% left_join(meta) %>% mutate(GenderID = as.numeric(as.factor(GenderID)))
+
+summary(lm(V1 ~ Free_testosterone_Vermeulen_pmol_L + Estradiol_pmol_ml + LH_U_L + SHBG_nmol_L + boppercent + GenderID + Age + CODS + XI, data=df))
+summary(lm(V2 ~ Free_testosterone_Vermeulen_pmol_L + Estradiol_pmol_ml + LH_U_L + SHBG_nmol_L + boppercent + GenderID + Age + CODS + XI, data=df))
+
+# Saliva
+df = processedSaliva$mode1 %>% mutate(subject=as.integer(subject),V1=cp_saliva$Fac[[1]][,1],V2=cp_saliva$Fac[[1]][,2]) %>% left_join(meta) %>% mutate(GenderID = as.numeric(as.factor(GenderID)))
+
+summary(lm(V1 ~ Free_testosterone_Vermeulen_pmol_L + Estradiol_pmol_ml + LH_U_L + SHBG_nmol_L + boppercent + GenderID + Age + CODS + XI, data=df))
+summary(lm(V2 ~ Free_testosterone_Vermeulen_pmol_L + Estradiol_pmol_ml + LH_U_L + SHBG_nmol_L + boppercent + GenderID + Age + CODS + XI, data=df))
+
+# Cytokines
+df = processedCytokines$mode1 %>% mutate(subject=as.integer(subject),V1=cp_cytokines$Fac[[1]][,1],V2=cp_cytokines$Fac[[1]][,2]) %>% left_join(meta) %>% mutate(GenderID = as.numeric(as.factor(GenderID)))
+
+summary(lm(V1 ~ Free_testosterone_Vermeulen_pmol_L + Estradiol_pmol_ml + LH_U_L + SHBG_nmol_L + boppercent + GenderID + Age + CODS + XI, data=df))
+summary(lm(V2 ~ Free_testosterone_Vermeulen_pmol_L + Estradiol_pmol_ml + LH_U_L + SHBG_nmol_L + boppercent + GenderID + Age + CODS + XI, data=df))
+
+# Biochemistry
+df = processedBiochemistry$mode1 %>% mutate(subject=as.integer(subject),V1=cp_biochemistry$Fac[[1]][,1],V2=cp_biochemistry$Fac[[1]][,2]) %>% left_join(meta) %>% mutate(GenderID = as.numeric(as.factor(GenderID)))
+
+summary(lm(V1 ~ Free_testosterone_Vermeulen_pmol_L + Estradiol_pmol_ml + LH_U_L + SHBG_nmol_L + boppercent + GenderID + Age + CODS + XI, data=df))
+summary(lm(V2 ~ Free_testosterone_Vermeulen_pmol_L + Estradiol_pmol_ml + LH_U_L + SHBG_nmol_L + boppercent + GenderID + Age + CODS + XI, data=df))
+```
+
+```{r feature mode plot}
+# Briefly check how the signs work
+# TW should be positive, TM negative
+
+# Saliva comp 2
+topIndices = processedSaliva$mode2 %>% mutate(index=1:nrow(.), Comp = cp_saliva$Fac[[2]][,2]) %>% arrange(desc(Comp)) %>% head() %>% select(index) %>% pull()
+bottomIndices = processedSaliva$mode2 %>% mutate(index=1:nrow(.), Comp = cp_saliva$Fac[[2]][,2]) %>% arrange(desc(Comp)) %>% tail() %>% select(index) %>% pull()
+
+Xhat = parafac4microbiome::reinflateTensor(cp_saliva$Fac[[1]][,2], cp_saliva$Fac[[2]][,2], cp_saliva$Fac[[3]][,2])
+
+print("Positive loadings:")
+print(cor(Xhat[,topIndices[1],1], processedSaliva$mode1 %>% mutate(subject=as.integer(subject)) %>% left_join(meta) %>% select(LH_U_L) %>% pull(), use="pairwise.complete.obs"))
+print("Negative loadings:")
+print(cor(Xhat[,bottomIndices[1],1], processedSaliva$mode1 %>% mutate(subject=as.integer(subject)) %>% left_join(meta) %>% select(LH_U_L) %>% pull(), use="pairwise.complete.obs"))
+
+# Saliva comp 2
+temp = processedSaliva$mode2 %>%
+  as_tibble() %>%
+  mutate(Component_2 = cp_saliva$Fac[[2]][,2]) %>%
+  mutate(Genus = gsub("g__", "", Genus), Species = gsub("s__", "", Species)) %>%
+  mutate(Species = gsub("\\(", "", Species)) %>%
+  mutate(Species = gsub("\\)", "", Species))
+
+fixedSpeciesNames = str_split_fixed(temp$Species, "/", 5) %>% 
+  as_tibble() %>%
+  mutate(dplyr::across(.cols = everything(), .fns = ~ dplyr::if_else(stringr::str_detect(.x, "sp."), "", .x)))
+fixedSpeciesNames[fixedSpeciesNames$V1 == "", "V1"] = "sp."
+fixedSpeciesNames = fixedSpeciesNames %>% 
+  mutate(name=paste0(V1, "/", V2)) %>% 
+  mutate(name=gsub("/$", "", name)) %>% 
+  mutate(name=paste0(name, "/", V3)) %>% 
+  mutate(name=gsub("/$", "", name)) %>% 
+  mutate(name=paste0(name, "/", V4)) %>% 
+  mutate(name=gsub("/$", "", name)) %>% 
+  mutate(name=paste0(name, "/", V5)) %>% 
+  mutate(name=gsub("/$", "", name))
+
+temp$Species = fixedSpeciesNames$name
+temp$name = paste0(temp$Genus, " ", temp$Species)
+temp[temp$name == " sp.", "name"] = "Unclassified"
+temp[temp$name == " ", "name"] = "Unclassified"
+temp[temp$name == " sp.", "name"] = "Unclassified"
+
+temp = temp %>%
+  arrange(Component_2) %>%
+  mutate(index=1:nrow(.)) %>%
+  filter(index %in% c(1:10,251:260))
+
+a=temp %>%
+  ggplot(aes(x=Component_2,y=as.factor(index),fill=as.factor(Phylum))) +
+  geom_bar(stat="identity", col="black") +
+  scale_y_discrete(label=temp$name) +
+  xlab("Loading") +
+  ylab("") +
+  scale_fill_manual(name="Phylum", labels=c("Actinobacteria", "Bacteroidetes", "Firmicutes", "Fusobacteria", "Proteobacteria"), values=hue_pal()(5)) +
+  theme(text=element_text(size=16))
+```
+
+```{r time mode plot}
+b = cp_saliva$Fac[[3]][,2] %>% as_tibble() %>% mutate(value=value) %>% mutate(timepoint=c(0,3,6,12)) %>% ggplot(aes(x=timepoint,y=value)) + geom_line() + geom_point() + xlab("Time point [months]") + ylab("Loading") + ylim(0,1)
+
+ggarrange(a,b)
+```
+
+# NPLS
+
+```{r prepare y}
+Y = as.numeric(as.factor(processedTongue$mode1$GenderID))
+Ycnt = Y - mean(Y)
+Ynorm_tongue = Ycnt / norm(Ycnt, "2")
+
+Y = as.numeric(as.factor(processedSaliva$mode1$GenderID))
+Ycnt = Y - mean(Y)
+Ynorm_saliva = Ycnt / norm(Ycnt, "2")
+
+Y = as.numeric(as.factor(processedCytokines$mode1$GenderID))
+Ycnt = Y - mean(Y)
+Ynorm_cytokine = Ycnt / norm(Ycnt, "2")
+
+Y = as.numeric(as.factor(processedBiochemistry$mode1$GenderID))
+Ycnt = Y - mean(Y)
+Ynorm_biochem = Ycnt / norm(Ycnt, "2")
+```
+
+```{r prepare CVs}
+# CV_tongue = NPLStoolbox::ncrossreg(processedTongue$data, Ynorm_tongue, maxNumComponents = 10)
+# CV_saliva = NPLStoolbox::ncrossreg(processedSaliva$data, Ynorm_saliva, maxNumComponents = 10)
+# CV_cyto = NPLStoolbox::ncrossreg(processedCytokines$data, Ynorm_cytokine, maxNumComponents = 10)
+# CV_bio = NPLStoolbox::ncrossreg(processedBiochemistry$data, Ynorm_biochem, maxNumComponents=10)
+# 
+# saveRDS(CV_tongue, "./NPLS_CV_tongue.RDS")
+# saveRDS(CV_saliva, "./NPLS_CV_saliva.RDS")
+# saveRDS(CV_cyto, "./NPLS_CV_cyto.RDS")
+# saveRDS(CV_bio, "./NPLS_CV_bio.RDS")
+
+CV_tongue = readRDS("./NPLS_CV_tongue.RDS")
+CV_saliva = readRDS("./NPLS_CV_saliva.RDS")
+CV_cyto = readRDS("./NPLS_CV_cyto.RDS")
+CV_bio = readRDS("./NPLS_CV_bio.RDS")
+
+a=CV_tongue$varExp %>% pivot_longer(-numComponents) %>% ggplot(aes(x=as.factor(numComponents),y=value,col=as.factor(name),group=as.factor(name))) + geom_line() + geom_point() + xlab("Number of components") + ylab("Variance explained (%)") + theme(legend.position="none")
+b=CV_tongue$RMSE %>% ggplot(aes(x=as.factor(numComponents),y=RMSE,group=1)) + geom_line() + geom_point() + xlab("Number of components") + ylab("RMSECV")
+ggarrange(a,b) # 1
+
+a=CV_saliva$varExp %>% pivot_longer(-numComponents) %>% ggplot(aes(x=as.factor(numComponents),y=value,col=as.factor(name),group=as.factor(name))) + geom_line() + geom_point() + xlab("Number of components") + ylab("Variance explained (%)") + theme(legend.position="none")
+b=CV_saliva$RMSE %>% ggplot(aes(x=as.factor(numComponents),y=RMSE,group=1)) + geom_line() + geom_point() + xlab("Number of components") + ylab("RMSECV")
+ggarrange(a,b) # 1
+
+a=CV_cyto$varExp %>% pivot_longer(-numComponents) %>% ggplot(aes(x=as.factor(numComponents),y=value,col=as.factor(name),group=as.factor(name))) + geom_line() + geom_point() + xlab("Number of components") + ylab("Variance explained (%)") + theme(legend.position="none")
+b=CV_cyto$RMSE %>% ggplot(aes(x=as.factor(numComponents),y=RMSE,group=1)) + geom_line() + geom_point() + xlab("Number of components") + ylab("RMSECV")
+ggarrange(a,b) # 1
+
+a=CV_bio$varExp %>% pivot_longer(-numComponents) %>% ggplot(aes(x=as.factor(numComponents),y=value,col=as.factor(name),group=as.factor(name))) + geom_line() + geom_point() + xlab("Number of components") + ylab("Variance explained (%)") + theme(legend.position="none")
+b=CV_bio$RMSE %>% ggplot(aes(x=as.factor(numComponents),y=RMSE,group=1)) + geom_line() + geom_point() + xlab("Number of components") + ylab("RMSECV")
+ggarrange(a,b) # 1
+```
+
+```{r npls models}
+# npls_tongue = NPLStoolbox::triPLS1(processedTongue$data, Ynorm_tongue, 1)
+# npls_saliva = NPLStoolbox::triPLS1(processedSaliva$data, Ynorm_saliva, 1)
+# npls_cyto = NPLStoolbox::triPLS1(processedCytokines$data, Ynorm_cytokine, 1)
+# npls_bio = NPLStoolbox::triPLS1(processedBiochemistry$data, Ynorm_biochem, 1)
+# 
+# saveRDS(npls_tongue, "./NPLS_tongue.RDS")
+# saveRDS(npls_saliva, "./NPLS_saliva.RDS")
+# saveRDS(npls_cyto, "./NPLS_cyto.RDS")
+# saveRDS(npls_bio, "./NPLS_bio.RDS")
+
+npls_tongue = readRDS("./NPLS_tongue.RDS")
+npls_saliva = readRDS("./NPLS_saliva.RDS")
+npls_cyto = readRDS("./NPLS_cyto.RDS")
+npls_bio = readRDS("./NPLS_bio.RDS")
+```
+
+```{r check for score outliers}
+npls_tongue$Fac[[1]] %>% as_tibble() %>% mutate(index=1:nrow(.)) %>% pivot_longer(-index) %>% ggplot(aes(x=value)) + facet_wrap(~name) + geom_histogram()
+npls_saliva$Fac[[1]] %>% as_tibble() %>% mutate(index=1:nrow(.)) %>% pivot_longer(-index) %>% ggplot(aes(x=value)) + facet_wrap(~name) + geom_histogram()
+npls_cyto$Fac[[1]] %>% as_tibble() %>% mutate(index=1:nrow(.)) %>% pivot_longer(-index) %>% ggplot(aes(x=value)) + facet_wrap(~name) + geom_histogram()
+npls_bio$Fac[[1]] %>% as_tibble() %>% mutate(index=1:nrow(.)) %>% pivot_longer(-index) %>% ggplot(aes(x=value)) + facet_wrap(~name) + geom_histogram()
+```
+
+```{r npls test metadata}
+# Tongue
+df = processedTongue$mode1 %>% mutate(subject=as.integer(subject),V1=npls_tongue$Fac[[1]][,1]) %>% left_join(meta) %>% mutate(GenderID = as.numeric(as.factor(GenderID)))
+
+summary(lm(V1 ~ Free_testosterone_Vermeulen_pmol_L + Estradiol_pmol_ml + LH_U_L + SHBG_nmol_L + boppercent + GenderID + Age + CODS + XI, data=df))
+
+# Saliva
+df = processedSaliva$mode1 %>% mutate(subject=as.integer(subject),V1=npls_saliva$Fac[[1]][,1]) %>% left_join(meta) %>% mutate(GenderID = as.numeric(as.factor(GenderID)))
+
+summary(lm(V1 ~ Free_testosterone_Vermeulen_pmol_L + Estradiol_pmol_ml + LH_U_L + SHBG_nmol_L + boppercent + GenderID + Age + CODS + XI, data=df))
+
+# Cytokines
+df = processedCytokines$mode1 %>% mutate(subject=as.integer(subject),V1=npls_cyto$Fac[[1]][,1]) %>% left_join(meta) %>% mutate(GenderID = as.numeric(as.factor(GenderID)))
+
+summary(lm(V1 ~ Free_testosterone_Vermeulen_pmol_L + Estradiol_pmol_ml + LH_U_L + SHBG_nmol_L + boppercent + GenderID + Age + CODS + XI, data=df))
+
+# Biochemistry
+df = processedBiochemistry$mode1 %>% mutate(subject=as.integer(subject),V1=npls_bio$Fac[[1]][,1]) %>% left_join(meta) %>% mutate(GenderID = as.numeric(as.factor(GenderID)))
+
+summary(lm(V1 ~ Free_testosterone_Vermeulen_pmol_L + Estradiol_pmol_ml + LH_U_L + SHBG_nmol_L + boppercent + GenderID + Age + CODS + XI, data=df))
+```
+
+```{r feature mode plot}
+# Briefly check how the signs work
+
+# Tongue comp 1
+topIndices = processedTongue$mode2 %>% mutate(index=1:nrow(.), Comp = npls_tongue$Fac[[2]][,1]) %>% arrange(desc(Comp)) %>% head() %>% select(index) %>% pull()
+bottomIndices = processedTongue$mode2 %>% mutate(index=1:nrow(.), Comp = npls_tongue$Fac[[2]][,1]) %>% arrange(desc(Comp)) %>% tail() %>% select(index) %>% pull()
+
+Xhat = parafac4microbiome::reinflateTensor(npls_tongue$Fac[[1]][,1], npls_tongue$Fac[[2]][,1], npls_tongue$Fac[[3]][,1])
+
+print("Positive loadings:")
+print(cor(Xhat[,topIndices[1],1], as.numeric(as.factor(processedTongue$mode1$GenderID)), use="pairwise.complete.obs"))
+processedTongue$mode1 %>% mutate(comp = Xhat[,topIndices[1],1]) %>% ggplot(aes(x=as.factor(GenderID),y=comp)) + geom_boxplot()
+print("Negative loadings:")
+print(cor(Xhat[,bottomIndices[1],1], as.numeric(as.factor(processedTongue$mode1$GenderID)), use="pairwise.complete.obs"))
+processedTongue$mode1 %>% mutate(comp = Xhat[,bottomIndices[1],1]) %>% ggplot(aes(x=as.factor(GenderID),y=comp)) + geom_boxplot()
+
+# Saliva comp 1
+topIndices = processedSaliva$mode2 %>% mutate(index=1:nrow(.), Comp = npls_saliva$Fac[[2]][,1]) %>% arrange(desc(Comp)) %>% head() %>% select(index) %>% pull()
+bottomIndices = processedSaliva$mode2 %>% mutate(index=1:nrow(.), Comp = npls_saliva$Fac[[2]][,1]) %>% arrange(desc(Comp)) %>% tail() %>% select(index) %>% pull()
+
+Xhat = parafac4microbiome::reinflateTensor(npls_saliva$Fac[[1]][,1], npls_saliva$Fac[[2]][,1], npls_saliva$Fac[[3]][,1])
+
+print("Positive loadings:")
+print(cor(Xhat[,topIndices[1],1], as.numeric(as.factor(processedSaliva$mode1$GenderID)), use="pairwise.complete.obs")) # flip
+processedSaliva$mode1 %>% mutate(comp = Xhat[,topIndices[1],1]) %>% ggplot(aes(x=as.factor(GenderID),y=comp)) + geom_boxplot()
+print("Negative loadings:")
+print(cor(Xhat[,bottomIndices[1],1], as.numeric(as.factor(processedSaliva$mode1$GenderID)), use="pairwise.complete.obs"))
+processedSaliva$mode1 %>% mutate(comp = Xhat[,bottomIndices[1],1]) %>% ggplot(aes(x=as.factor(GenderID),y=comp)) + geom_boxplot()
+
+# Biochemistry comp 1
+topIndices = 7
+bottomIndices = 5
+
+Xhat = parafac4microbiome::reinflateTensor(npls_bio$Fac[[1]][,1], npls_bio$Fac[[2]][,1], npls_bio$Fac[[3]][,1])
+
+print("Positive loadings:")
+print(cor(Xhat[,topIndices[1],1], as.numeric(as.factor(processedBiochemistry$mode1$GenderID)), use="pairwise.complete.obs")) # flip
+processedBiochemistry$mode1 %>% mutate(comp = Xhat[,topIndices[1],1]) %>% ggplot(aes(x=as.factor(GenderID),y=comp)) + geom_boxplot()
+print("Negative loadings:")
+print(cor(Xhat[,bottomIndices[1],1], as.numeric(as.factor(processedBiochemistry$mode1$GenderID)), use="pairwise.complete.obs"))
+processedBiochemistry$mode1 %>% mutate(comp = Xhat[,bottomIndices[1],1]) %>% ggplot(aes(x=as.factor(GenderID),y=comp)) + geom_boxplot()
+
+############
+
+# Tongue comp 1
+temp = processedTongue$mode2 %>%
+  as_tibble() %>%
+  mutate(Component_1 = npls_tongue$Fac[[2]][,1]) %>%
+  mutate(Genus = gsub("g__", "", Genus), Species = gsub("s__", "", Species)) %>%
+  mutate(Species = gsub("\\(", "", Species)) %>%
+  mutate(Species = gsub("\\)", "", Species))
+
+fixedSpeciesNames = str_split_fixed(temp$Species, "/", 5) %>% 
+  as_tibble() %>%
+  mutate(dplyr::across(.cols = everything(), .fns = ~ dplyr::if_else(stringr::str_detect(.x, "sp."), "", .x)))
+fixedSpeciesNames[fixedSpeciesNames$V1 == "", "V1"] = "sp."
+fixedSpeciesNames = fixedSpeciesNames %>% 
+  mutate(name=paste0(V1, "/", V2)) %>% 
+  mutate(name=gsub("/$", "", name)) %>% 
+  mutate(name=paste0(name, "/", V3)) %>% 
+  mutate(name=gsub("/$", "", name)) %>% 
+  mutate(name=paste0(name, "/", V4)) %>% 
+  mutate(name=gsub("/$", "", name)) %>% 
+  mutate(name=paste0(name, "/", V5)) %>% 
+  mutate(name=gsub("/$", "", name))
+
+temp$Species = fixedSpeciesNames$name
+temp$name = paste0(temp$Genus, " ", temp$Species)
+temp[temp$name == " sp.", "name"] = "Unclassified"
+temp[temp$name == " ", "name"] = "Unclassified"
+temp[temp$name == " sp.", "name"] = "Unclassified"
+
+temp = temp %>%
+  arrange(Component_1) %>%
+  mutate(index=1:nrow(.)) %>%
+  filter(index %in% c(1:10,213:222))
+
+a=temp %>%
+  ggplot(aes(x=Component_1,y=as.factor(index),fill=as.factor(Phylum))) +
+  geom_bar(stat="identity", col="black") +
+  scale_y_discrete(label=temp$name) +
+  xlab("Loading") +
+  ylab("") +
+  guides(fill=guide_legend(title="Phylum")) +
+  theme(text=element_text(size=16))
+
+# Saliva comp 1
+temp = processedSaliva$mode2 %>%
+  as_tibble() %>%
+  mutate(Component_1 = -1*npls_saliva$Fac[[2]][,1]) %>%
+  mutate(Genus = gsub("g__", "", Genus), Species = gsub("s__", "", Species)) %>%
+  mutate(Species = gsub("\\(", "", Species)) %>%
+  mutate(Species = gsub("\\)", "", Species))
+
+fixedSpeciesNames = str_split_fixed(temp$Species, "/", 5) %>% 
+  as_tibble() %>%
+  mutate(dplyr::across(.cols = everything(), .fns = ~ dplyr::if_else(stringr::str_detect(.x, "sp."), "", .x)))
+fixedSpeciesNames[fixedSpeciesNames$V1 == "", "V1"] = "sp."
+fixedSpeciesNames = fixedSpeciesNames %>% 
+  mutate(name=paste0(V1, "/", V2)) %>% 
+  mutate(name=gsub("/$", "", name)) %>% 
+  mutate(name=paste0(name, "/", V3)) %>% 
+  mutate(name=gsub("/$", "", name)) %>% 
+  mutate(name=paste0(name, "/", V4)) %>% 
+  mutate(name=gsub("/$", "", name)) %>% 
+  mutate(name=paste0(name, "/", V5)) %>% 
+  mutate(name=gsub("/$", "", name))
+
+temp$Species = fixedSpeciesNames$name
+temp$name = paste0(temp$Genus, " ", temp$Species)
+temp[temp$name == " sp.", "name"] = "Unclassified"
+temp[temp$name == " ", "name"] = "Unclassified"
+temp[temp$name == " sp.", "name"] = "Unclassified"
+
+temp = temp %>%
+  arrange(Component_1) %>%
+  mutate(index=1:nrow(.)) %>%
+  filter(index %in% c(1:10,251:260))
+
+b=temp %>%
+  ggplot(aes(x=Component_1,y=as.factor(index),fill=as.factor(Phylum))) +
+  geom_bar(stat="identity", col="black") +
+  scale_y_discrete(label=temp$name) +
+  xlab("Loading") +
+  ylab("") +
+  guides(fill=guide_legend(title="Phylum")) +
+  theme(text=element_text(size=16))
+
+# Biochemistry comp 1
+temp = processedBiochemistry$mode2 %>%
+  mutate(Comp = -1*npls_bio$Fac[[2]][,1]) %>%
+  arrange(Comp) %>%
+  mutate(index=1:nrow(.)) %>%
+  mutate(V1 = c("pH", "S-IgA", "Chitinase", "MUC-5B", "Amylase", "Total protein", "Lysozyme"))
+
+c = temp %>%
+  ggplot(aes(x=Comp,y=as.factor(index))) +
+  geom_bar(stat="identity", col="black") +
+  xlab("Loading") +
+  ylab("") +
+  scale_y_discrete(labels=temp$V1) +
+  theme(text=element_text(size=16))
+```
+
+```{r npls time mode loadings}
+a = npls_tongue$Fac[[3]][,1] %>% as_tibble() %>% mutate(value=value) %>% mutate(timepoint=c(0,3,6,12)) %>% ggplot(aes(x=timepoint,y=value)) + geom_line() + geom_point() + xlab("Time point [months]") + ylab("Loading") + ylim(0,1)
+
+b = npls_saliva$Fac[[3]][,1] %>% as_tibble() %>% mutate(value=-1*value) %>% mutate(timepoint=c(0,3,6,12)) %>% ggplot(aes(x=timepoint,y=value)) + geom_line() + geom_point() + xlab("Time point [months]") + ylab("Loading") + ylim(0,1)
+
+c = npls_bio$Fac[[3]][,1] %>% as_tibble() %>% mutate(value=-1*value) %>% mutate(timepoint=c(0,3,6,12)) %>% ggplot(aes(x=timepoint,y=value)) + geom_line() + geom_point() + xlab("Time point [months]") + ylab("Loading") + ylim(0,1)
+```
+
+# ACMTF
+```{r acmtf homogenize and process data}
+deltaT = NPLStoolbox::Cornejo2025$Circulatory_hormones$data[,1,2] - NPLStoolbox::Cornejo2025$Circulatory_hormones$data[,1,1]
+outcome = NPLStoolbox::Cornejo2025$Circulatory_hormones$mode1 %>% mutate(deltaT = deltaT) %>% filter(deltaT != "NA")
+
+homogenizedSamples1 = intersect(NPLStoolbox::Cornejo2025$Tongue_microbiome$mode1$subject, outcome$subject)
+homogenizedSamples2 = intersect(NPLStoolbox::Cornejo2025$Salivary_microbiome$mode1$subject, outcome$subject)
+homogenizedSamples3 = intersect(NPLStoolbox::Cornejo2025$Salivary_cytokines$mode1$subject, outcome$subject)
+homogenizedSamples4 = intersect(NPLStoolbox::Cornejo2025$Salivary_biochemistry$mode1$subject, outcome$subject)
+
+homogenizedSamples = intersect(intersect(homogenizedSamples1, homogenizedSamples2), intersect(homogenizedSamples3,homogenizedSamples4))
+
+outcome = outcome %>% filter(subject %in% homogenizedSamples)
+
+# Tongue
+newTongue = NPLStoolbox::Cornejo2025$Tongue
+
+mask = newTongue$mode1$subject %in% homogenizedSamples
+newTongue$data = newTongue$data[mask,,]
+newTongue$mode1 = newTongue$mode1[mask,]
+
+processedTongue_acmtf = processDataCube(newTongue, sparsityThreshold = 0.5, considerGroups=TRUE, groupVariable="GenderID", CLR=TRUE, centerMode=1, scaleMode=2)
+
+# Saliva
+newSaliva = NPLStoolbox::Cornejo2025$Salivary_microbiome
+
+mask = newSaliva$mode1$subject %in% homogenizedSamples
+newSaliva$data = newSaliva$data[mask,,]
+newSaliva$mode1 = newSaliva$mode1[mask,]
+
+processedSaliva_acmtf = processDataCube(newSaliva, sparsityThreshold = 0.5, considerGroups=TRUE, groupVariable="GenderID", CLR=TRUE, centerMode=1, scaleMode=2)
+
+# Cytokines
+newCytokines = NPLStoolbox::Cornejo2025$Salivary_cytokines
+
+mask = newCytokines$mode1$subject %in% homogenizedSamples
+newCytokines$data = log(newCytokines$data[mask,,] + 0.1300)
+newCytokines$mode1 = newCytokines$mode1[mask,]
+
+processedCytokines_acmtf = processDataCube(newCytokines, CLR=FALSE, centerMode=1, scaleMode=2)
+
+# Biochemistry
+newBio = NPLStoolbox::Cornejo2025$Salivary_biochemistry
+
+mask = newBio$mode1$subject %in% homogenizedSamples
+newBio$data = log(newBio$data[mask,,])
+newBio$mode1 = newBio$mode1[mask,]
+
+processedBiochemistry_acmtf = processDataCube(newBio, CLR=FALSE, centerMode=1, scaleMode=2)
+```
+
+```{r acmtf model selection}
+# CV_ACMTF = modelSelection(datasets, modes, method="L-BFGS", numCores=10)
+CV_ACMTF = readRDS("./20250815_4block/GOHTRANS_CV_ACMTF_deltaT.RDS")
+CV_ACMTF$plots$overview # 1 or 2
+rm(CV_ACMTF)
+```
+
+```{r fit acmtf}
+# acmtf_model = CMTFtoolbox::acmtf_opt(Z, 3, nstart = 100, method="L-BFGS", numCores=10)
+# 
+# saveRDS(acmtf_model, "./acmtf_model.RDS")
+acmtf_model = readRDS("./20250815_4block/GOHTRANS_ACMTFR_model_1_deltaT.RDS")
+```
+
+```{r check scores}
+acmtf_model$Fac[[1]] %>% as_tibble() %>% mutate(index=1:nrow(.)) %>% pivot_longer(-index) %>% ggplot(aes(x=value)) + facet_wrap(~name) + geom_histogram()
+```
+
+```{r test the model}
+df = processedTongue$mode1 %>% mutate(subject=as.integer(subject),V1=acmtf_model$Fac[[1]][,1], V2=acmtf_model$Fac[[1]][,1]) %>% left_join(meta) %>% mutate(GenderID = as.numeric(as.factor(GenderID)))
+
+summary(lm(V1 ~ Free_testosterone_Vermeulen_pmol_L + Estradiol_pmol_ml + LH_U_L + SHBG_nmol_L + boppercent + GenderID + Age + CODS + XI, data=df))
+summary(lm(V2 ~ Free_testosterone_Vermeulen_pmol_L + Estradiol_pmol_ml + LH_U_L + SHBG_nmol_L + boppercent + GenderID + Age + CODS + XI, data=df))
+```
+
+```{r plot the lambda matrix}
+lambda = abs(acmtf_model$Fac[[10]])
+colnames(lambda) = paste0("C", 1:2)
+
+lambda %>%
+  as_tibble() %>%
+  mutate(block=c("tongue", "saliva", "cytokines", "biochemistry")) %>%
+  mutate(block=factor(block, levels=c("tongue", "saliva", "cytokines", "biochemistry"))) %>%
+  pivot_longer(-block) %>%
+  ggplot(aes(x=as.factor(name),y=value,fill=as.factor(block))) +
+  geom_bar(stat="identity",position=position_dodge(),col="black") +
+  xlab("ACMTF component number") +
+  ylab(expression(lambda)) +
+  scale_x_discrete(labels=1:3) +
+  scale_fill_manual(name="Dataset",values = hue_pal()(4),labels=c("Tongue", "Salivary microbiome", "Salivary cytokines", "Salivary biochemistry")) +
+  theme(legend.position="top")
+```
+
+```{r feature mode}
+# Briefly check how the signs work
+
+# Tongue
+topIndices = processedTongue_acmtf$mode2 %>% mutate(index=1:nrow(.), Comp = acmtf_model$Fac[[2]][,2]) %>% arrange(desc(Comp)) %>% head() %>% select(index) %>% pull()
+bottomIndices = processedTongue_acmtf$mode2 %>% mutate(index=1:nrow(.), Comp = acmtf_model$Fac[[2]][,2]) %>% arrange(desc(Comp)) %>% tail() %>% select(index) %>% pull()
+
+Xhat = parafac4microbiome::reinflateTensor(acmtf_model$Fac[[1]][,2], acmtf_model$Fac[[2]][,2], acmtf_model$Fac[[3]][,2])
+
+print("Positive loadings:") # flip
+print(cor(Xhat[,topIndices[1],1], as.numeric(as.factor(processedTongue_acmtf$mode1$GenderID)), use="pairwise.complete.obs"))
+processedTongue_acmtf$mode1 %>% mutate(comp = Xhat[,topIndices[1],1]) %>% ggplot(aes(x=as.factor(GenderID),y=comp)) + geom_boxplot()
+print("Negative loadings:")
+print(cor(Xhat[,bottomIndices[1],1], as.numeric(as.factor(processedTongue_acmtf$mode1$GenderID)), use="pairwise.complete.obs"))
+processedTongue_acmtf$mode1 %>% mutate(comp = Xhat[,bottomIndices[1],1]) %>% ggplot(aes(x=as.factor(GenderID),y=comp)) + geom_boxplot()
+
+# Saliva
+topIndices = processedSaliva_acmtf$mode2 %>% mutate(index=1:nrow(.), Comp = acmtf_model$Fac[[4]][,2]) %>% arrange(desc(Comp)) %>% head() %>% select(index) %>% pull()
+bottomIndices = processedSaliva_acmtf$mode2 %>% mutate(index=1:nrow(.), Comp = acmtf_model$Fac[[4]][,2]) %>% arrange(desc(Comp)) %>% tail() %>% select(index) %>% pull()
+
+Xhat = parafac4microbiome::reinflateTensor(acmtf_model$Fac[[1]][,2], acmtf_model$Fac[[4]][,2], acmtf_model$Fac[[5]][,2])
+
+print("Positive loadings:")
+print(cor(Xhat[,topIndices[1],1], as.numeric(as.factor(processedSaliva_acmtf$mode1$GenderID)), use="pairwise.complete.obs")) #flip
+processedSaliva_acmtf$mode1 %>% mutate(comp = Xhat[,topIndices[1],1]) %>% ggplot(aes(x=as.factor(GenderID),y=comp)) + geom_boxplot()
+print("Negative loadings:")
+print(cor(Xhat[,bottomIndices[1],1], as.numeric(as.factor(processedSaliva_acmtf$mode1$GenderID)), use="pairwise.complete.obs"))
+processedSaliva_acmtf$mode1 %>% mutate(comp = Xhat[,bottomIndices[1],1]) %>% ggplot(aes(x=as.factor(GenderID),y=comp)) + geom_boxplot()
+
+# Cytokines
+topIndices = processedCytokines_acmtf$mode2 %>% mutate(index=1:nrow(.), Comp = acmtf_model$Fac[[6]][,2]) %>% arrange(desc(Comp)) %>% head() %>% select(index) %>% pull()
+bottomIndices = processedCytokines_acmtf$mode2 %>% mutate(index=1:nrow(.), Comp = acmtf_model$Fac[[6]][,2]) %>% arrange(desc(Comp)) %>% tail() %>% select(index) %>% pull()
+
+Xhat = -0.33 * parafac4microbiome::reinflateTensor(acmtf_model$Fac[[1]][,2], acmtf_model$Fac[[6]][,2], acmtf_model$Fac[[7]][,2])
+
+print("Positive loadings:")
+print(cor(Xhat[,topIndices[1],1], as.numeric(as.factor(processedCytokines_acmtf$mode1$GenderID)), use="pairwise.complete.obs")) # no flip - all positive and TF associated
+processedCytokines_acmtf$mode1 %>% mutate(comp = Xhat[,topIndices[1],1]) %>% ggplot(aes(x=as.factor(GenderID),y=comp)) + geom_boxplot()
+print("Negative loadings:")
+print(cor(Xhat[,bottomIndices[6],1], as.numeric(as.factor(processedCytokines_acmtf$mode1$GenderID)), use="pairwise.complete.obs"))
+processedCytokines_acmtf$mode1 %>% mutate(comp = Xhat[,bottomIndices[1],1]) %>% ggplot(aes(x=as.factor(GenderID),y=comp)) + geom_boxplot()
+
+# Biochemistry
+topIndices = 1
+bottomIndices = 7
+
+Xhat = parafac4microbiome::reinflateTensor(acmtf_model$Fac[[1]][,2], acmtf_model$Fac[[8]][,2], acmtf_model$Fac[[9]][,2])
+
+print("Positive loadings:")
+print(cor(Xhat[,topIndices[1],1], as.numeric(as.factor(processedBiochemistry_acmtf$mode1$GenderID)), use="pairwise.complete.obs")) # no flip
+processedBiochemistry_acmtf$mode1 %>% mutate(comp = Xhat[,topIndices[1],1]) %>% ggplot(aes(x=as.factor(GenderID),y=comp)) + geom_boxplot()
+print("Negative loadings:")
+print(cor(Xhat[,bottomIndices[1],1], as.numeric(as.factor(processedBiochemistry_acmtf$mode1$GenderID)), use="pairwise.complete.obs"))
+processedBiochemistry_acmtf$mode1 %>% mutate(comp = Xhat[,bottomIndices[1],1]) %>% ggplot(aes(x=as.factor(GenderID),y=comp)) + geom_boxplot()
+
+############
+
+# Tongue
+temp = processedTongue_acmtf$mode2 %>%
+  as_tibble() %>%
+  mutate(Component_1 = -1*acmtf_model$Fac[[2]][,2]) %>%
+  mutate(Genus = gsub("g__", "", Genus), Species = gsub("s__", "", Species)) %>%
+  mutate(Species = gsub("\\(", "", Species)) %>%
+  mutate(Species = gsub("\\)", "", Species))
+
+fixedSpeciesNames = str_split_fixed(temp$Species, "/", 5) %>% 
+  as_tibble() %>%
+  mutate(dplyr::across(.cols = everything(), .fns = ~ dplyr::if_else(stringr::str_detect(.x, "sp."), "", .x)))
+fixedSpeciesNames[fixedSpeciesNames$V1 == "", "V1"] = "sp."
+fixedSpeciesNames = fixedSpeciesNames %>% 
+  mutate(name=paste0(V1, "/", V2)) %>% 
+  mutate(name=gsub("/$", "", name)) %>% 
+  mutate(name=paste0(name, "/", V3)) %>% 
+  mutate(name=gsub("/$", "", name)) %>% 
+  mutate(name=paste0(name, "/", V4)) %>% 
+  mutate(name=gsub("/$", "", name)) %>% 
+  mutate(name=paste0(name, "/", V5)) %>% 
+  mutate(name=gsub("/$", "", name))
+
+temp$Species = fixedSpeciesNames$name
+temp$name = paste0(temp$Genus, " ", temp$Species)
+temp[temp$name == " sp.", "name"] = "Unclassified"
+temp[temp$name == " ", "name"] = "Unclassified"
+temp[temp$name == " sp.", "name"] = "Unclassified"
+
+temp = temp %>%
+  arrange(Component_1) %>%
+  mutate(index=1:nrow(.)) %>%
+  filter(index %in% c(1:10,228:237))
+
+a=temp %>%
+  ggplot(aes(x=Component_1,y=as.factor(index),fill=as.factor(Phylum))) +
+  geom_bar(stat="identity", col="black") +
+  scale_y_discrete(label=temp$name) +
+  xlab("Loading") +
+  ylab("") +
+  scale_fill_manual(name="Phylum", labels=c("Actinobacteria", "Bacteroidetes", "Firmicutes"), values=hue_pal()(5)[-c(4,5)]) +
+  theme(text=element_text(size=16))
+
+# Saliva comp 1
+temp = processedSaliva_acmtf$mode2 %>%
+  as_tibble() %>%
+  mutate(Component_1 = -1*acmtf_model$Fac[[4]][,2]) %>%
+  mutate(Genus = gsub("g__", "", Genus), Species = gsub("s__", "", Species)) %>%
+  mutate(Species = gsub("\\(", "", Species)) %>%
+  mutate(Species = gsub("\\)", "", Species))
+
+fixedSpeciesNames = str_split_fixed(temp$Species, "/", 5) %>% 
+  as_tibble() %>%
+  mutate(dplyr::across(.cols = everything(), .fns = ~ dplyr::if_else(stringr::str_detect(.x, "sp."), "", .x)))
+fixedSpeciesNames[fixedSpeciesNames$V1 == "", "V1"] = "sp."
+fixedSpeciesNames = fixedSpeciesNames %>% 
+  mutate(name=paste0(V1, "/", V2)) %>% 
+  mutate(name=gsub("/$", "", name)) %>% 
+  mutate(name=paste0(name, "/", V3)) %>% 
+  mutate(name=gsub("/$", "", name)) %>% 
+  mutate(name=paste0(name, "/", V4)) %>% 
+  mutate(name=gsub("/$", "", name)) %>% 
+  mutate(name=paste0(name, "/", V5)) %>% 
+  mutate(name=gsub("/$", "", name))
+
+temp$Species = fixedSpeciesNames$name
+temp$name = paste0(temp$Genus, " ", temp$Species)
+temp[temp$name == " sp.", "name"] = "Unclassified"
+temp[temp$name == " ", "name"] = "Unclassified"
+temp[temp$name == " sp.", "name"] = "Unclassified"
+
+temp = temp %>%
+  arrange(Component_1) %>%
+  mutate(index=1:nrow(.)) %>%
+  filter(index %in% c(1:10,260:269))
+
+b=temp %>%
+  ggplot(aes(x=Component_1,y=as.factor(index),fill=as.factor(Phylum))) +
+  geom_bar(stat="identity", col="black") +
+  scale_y_discrete(label=temp$name) +
+  xlab("Loading") +
+  ylab("") +
+  guides(fill=guide_legend(title="Phylum")) +
+  theme(text=element_text(size=16))
+
+# Cytokines comp 1
+temp = processedCytokines_acmtf$mode2 %>%
+  mutate(Comp = acmtf_model$Fac[[6]][,2]) %>%
+  arrange(Comp) %>%
+  mutate(index=1:nrow(.)) %>%
+  mutate(V1 = gsub("_pg_ml", "", V1)) %>%
+  mutate(V1 = gsub("_", "-", V1))
+
+c = temp %>%
+  ggplot(aes(x=Comp,y=as.factor(index))) +
+  geom_bar(stat="identity", col="black") +
+  xlab("Loading") +
+  ylab("") +
+  scale_y_discrete(labels=temp$V1) +
+  theme(text=element_text(size=16))  
+
+# Biochemistry comp 1
+temp = processedBiochemistry_acmtf$mode2 %>%
+  mutate(Comp = acmtf_model$Fac[[8]][,2]) %>%
+  arrange(Comp) %>%
+  mutate(index=1:nrow(.)) %>%
+  mutate(V1 = c("pH", "Chitinase", "S-IgA", "Amylase", "MUC-5B", "Lysozyme", "Total protein"))
+
+d = temp %>%
+  ggplot(aes(x=Comp,y=as.factor(index))) +
+  geom_bar(stat="identity", col="black") +
+  xlab("Loading") +
+  ylab("") +
+  scale_y_discrete(labels=temp$V1) +
+  theme(text=element_text(size=16))
+
+ggarrange(a,b,c,d)
+```
+
+```{r plot time loadings}
+a = acmtf_model$Fac[[3]][,2] %>% as_tibble() %>% mutate(value=-1*value) %>% mutate(timepoint=c(0,3,6,12)) %>% ggplot(aes(x=timepoint,y=value)) + geom_line() + geom_point() + xlab("Time point [months]") + ylab("Loading") + ylim(0,1)
+
+b = acmtf_model$Fac[[5]][,2] %>% as_tibble() %>% mutate(value=-1*value) %>% mutate(timepoint=c(0,3,6,12)) %>% ggplot(aes(x=timepoint,y=value)) + geom_line() + geom_point() + xlab("Time point [months]") + ylab("Loading") + ylim(0,1)
+
+c = acmtf_model$Fac[[7]][,2] %>% as_tibble() %>% mutate(value=-1*value) %>% mutate(timepoint=c(0,3,12)) %>% ggplot(aes(x=timepoint,y=value)) + geom_line() + geom_point() + xlab("Time point [months]") + ylab("Loading") + ylim(-1,1)
+
+d = acmtf_model$Fac[[9]][,2] %>% as_tibble() %>% mutate(value=value) %>% mutate(timepoint=c(0,3,6,12)) %>% ggplot(aes(x=timepoint,y=value)) + geom_line() + geom_point() + xlab("Time point [months]") + ylab("Loading") + ylim(0,1)
+
+ggarrange(a,c,b,d, nrow=2, ncol=2)
+```
+
+# ACMTF-R
+
+```{r prepare y}
+Y = as.numeric(as.factor(processedTongue$mode1$GenderID))
+Ycnt = Y - mean(Y)
+Ynorm = Ycnt / norm(Ycnt, "2")
+```
+
+```{r model selection}
+modelSelection90 = readRDS("./GOHTRANS_CV_ACMTFR_90.RDS")
+modelSelection90$plots$overview # clearly 1 (RMSCV, FMS_CV, DS)
+rm(modelSelection90)
+
+modelSelection80 = readRDS("./GOHTRANS_CV_ACMTFR_80.RDS")
+modelSelection80$plots$overview # clearly 1 (RMSCV, FMS_CV, DS)
+rm(modelSelection80)
+
+modelSelection70 = readRDS("./GOHTRANS_CV_ACMTFR_70.RDS")
+modelSelection70$plots$overview # clearly 1 (RMSECV, FMS_CV)
+rm(modelSelection70)
+
+modelSelection60 = readRDS("./GOHTRANS_CV_ACMTFR_60.RDS")
+modelSelection60$plots$overview # clearly 1 (RMSECV, FMS_CV)
+rm(modelSelection60)
+
+modelSelection50 = readRDS("./GOHTRANS_CV_ACMTFR_50.RDS")
+modelSelection50$plots$overview # clearly 1 (RMSECV, FMS_CV)
+rm(modelSelection50)
+
+ggarrange(modelSelection90$plots$FMS_CV, modelSelection90$plots$RMSECV,
+          modelSelection80$plots$FMS_CV, modelSelection80$plots$RMSECV,
+          modelSelection70$plots$FMS_CV, modelSelection70$plots$RMSECV,
+          modelSelection60$plots$FMS_CV, modelSelection60$plots$RMSECV,
+          modelSelection50$plots$FMS_CV, modelSelection50$plots$RMSECV, nrow=5, ncol=2, common.legend=TRUE)
+```
+
+```{r load models}
+# acmtf_model = readRDS("./amctf_model.RDS")
+acmtfr_model1 = readRDS("./GOHTRANS_ACMTFR_model_1.RDS")
+acmtfr_model90 = readRDS("./GOHTRANS_ACMTFR_model_90.RDS")
+acmtfr_model80 = readRDS("./GOHTRANS_ACMTFR_model_80.RDS")
+acmtfr_model70 = readRDS("./GOHTRANS_ACMTFR_model_70.RDS")
+acmtfr_model60 = readRDS("./GOHTRANS_ACMTFR_model_60.RDS")
+acmtfr_model50 = readRDS("./GOHTRANS_ACMTFR_model_50.RDS")
+```
+
+```{r acmtfr lambda matrices}
+lambda = abs(acmtfr_model60$Fac[[10]])
+colnames(lambda) = paste0("C", 1)
+
+lambda %>%
+  as_tibble() %>%
+  mutate(block=c("tongue", "saliva", "cytokines", "biochemistry")) %>%
+  mutate(block=factor(block, levels=c("tongue", "saliva", "cytokines", "biochemistry"))) %>%
+  pivot_longer(-block) %>%
+  ggplot(aes(x=as.factor(name),y=value,fill=as.factor(block))) +
+  geom_bar(stat="identity",position=position_dodge(),col="black") +
+  xlab("ACMTF-R component number") +
+  ylab(expression(lambda)) +
+  scale_x_discrete(labels=1:3) +
+  scale_fill_manual(name="Dataset",values = hue_pal()(4),labels=c("Tongue", "Salivary microbiome", "Salivary cytokines", "Salivary biochemistry")) +
+  theme(legend.position="top")
+```
+
+```{r test the model}
+df = processedTongue$mode1 %>% mutate(subject=as.integer(subject),V1=acmtfr_model60$Fac[[1]][,1]) %>% left_join(meta) %>% mutate(GenderID = as.numeric(as.factor(GenderID)))
+
+summary(lm(V1 ~ Free_testosterone_Vermeulen_pmol_L + Estradiol_pmol_ml + LH_U_L + SHBG_nmol_L + boppercent + GenderID + Age + CODS + XI, data=df))
+```
+
+```{r feature mode}
+# Briefly check how the signs work
+
+# Tongue
+topIndices = processedTongue$mode2 %>% mutate(index=1:nrow(.), Comp = acmtfr_model60$Fac[[2]][,1]) %>% arrange(desc(Comp)) %>% head() %>% select(index) %>% pull()
+bottomIndices = processedTongue$mode2 %>% mutate(index=1:nrow(.), Comp = acmtfr_model60$Fac[[2]][,1]) %>% arrange(desc(Comp)) %>% tail() %>% select(index) %>% pull()
+
+Xhat = parafac4microbiome::reinflateTensor(acmtfr_model60$Fac[[1]][,1], acmtfr_model60$Fac[[2]][,1], acmtfr_model60$Fac[[3]][,1])
+
+print("Positive loadings:") # flip
+print(cor(Xhat[,topIndices[1],1], as.numeric(as.factor(processedTongue$mode1$GenderID)), use="pairwise.complete.obs"))
+processedTongue$mode1 %>% mutate(comp = Xhat[,topIndices[1],1]) %>% ggplot(aes(x=as.factor(GenderID),y=comp)) + geom_boxplot()
+print("Negative loadings:")
+print(cor(Xhat[,bottomIndices[1],1], as.numeric(as.factor(processedTongue$mode1$GenderID)), use="pairwise.complete.obs"))
+processedTongue$mode1 %>% mutate(comp = Xhat[,bottomIndices[1],1]) %>% ggplot(aes(x=as.factor(GenderID),y=comp)) + geom_boxplot()
+
+# Saliva
+topIndices = processedSaliva$mode2 %>% mutate(index=1:nrow(.), Comp = acmtfr_model60$Fac[[4]][,1]) %>% arrange(desc(Comp)) %>% head() %>% select(index) %>% pull()
+bottomIndices = processedSaliva$mode2 %>% mutate(index=1:nrow(.), Comp = acmtfr_model60$Fac[[4]][,1]) %>% arrange(desc(Comp)) %>% tail() %>% select(index) %>% pull()
+
+Xhat = parafac4microbiome::reinflateTensor(acmtfr_model60$Fac[[1]][,1], acmtfr_model60$Fac[[4]][,1], acmtfr_model60$Fac[[5]][,1])
+
+print("Positive loadings:")
+print(cor(Xhat[,topIndices[1],1], as.numeric(as.factor(processedSaliva$mode1$GenderID)), use="pairwise.complete.obs")) # flip
+processedSaliva$mode1 %>% mutate(comp = Xhat[,topIndices[1],1]) %>% ggplot(aes(x=as.factor(GenderID),y=comp)) + geom_boxplot()
+print("Negative loadings:")
+print(cor(Xhat[,bottomIndices[1],1], as.numeric(as.factor(processedSaliva$mode1$GenderID)), use="pairwise.complete.obs"))
+processedSaliva$mode1 %>% mutate(comp = Xhat[,bottomIndices[1],1]) %>% ggplot(aes(x=as.factor(GenderID),y=comp)) + geom_boxplot()
+
+# Cytokines
+topIndices = processedCytokines$mode2 %>% mutate(index=1:nrow(.), Comp = acmtfr_model60$Fac[[6]][,1]) %>% arrange(desc(Comp)) %>% head() %>% select(index) %>% pull()
+bottomIndices = processedCytokines$mode2 %>% mutate(index=1:nrow(.), Comp = acmtfr_model60$Fac[[6]][,1]) %>% arrange(desc(Comp)) %>% tail() %>% select(index) %>% pull()
+
+Xhat = parafac4microbiome::reinflateTensor(acmtfr_model60$Fac[[1]][,1], acmtfr_model60$Fac[[6]][,1], acmtfr_model60$Fac[[7]][,1])
+
+print("Positive loadings:")
+print(cor(Xhat[,topIndices[1],1], as.numeric(as.factor(processedCytokines$mode1$GenderID)), use="pairwise.complete.obs")) # flip
+processedCytokines$mode1 %>% mutate(comp = Xhat[,topIndices[1],1]) %>% ggplot(aes(x=as.factor(GenderID),y=comp)) + geom_boxplot()
+print("Negative loadings:")
+print(cor(Xhat[,bottomIndices[1],1], as.numeric(as.factor(processedCytokines$mode1$GenderID)), use="pairwise.complete.obs"))
+processedCytokines$mode1 %>% mutate(comp = Xhat[,bottomIndices[1],1]) %>% ggplot(aes(x=as.factor(GenderID),y=comp)) + geom_boxplot()
+
+# Biochemistry
+topIndices = 1
+bottomIndices = 7
+
+Xhat = parafac4microbiome::reinflateTensor(acmtfr_model60$Fac[[1]][,1], acmtfr_model60$Fac[[8]][,1], acmtfr_model60$Fac[[9]][,1])
+
+print("Positive loadings:")
+print(cor(Xhat[,topIndices[1],1], as.numeric(as.factor(processedBiochemistry$mode1$GenderID)), use="pairwise.complete.obs"))
+processedBiochemistry$mode1 %>% mutate(comp = Xhat[,topIndices[1],1]) %>% ggplot(aes(x=as.factor(GenderID),y=comp)) + geom_boxplot()
+print("Negative loadings:")
+print(cor(Xhat[,bottomIndices[1],1], as.numeric(as.factor(processedBiochemistry$mode1$GenderID)), use="pairwise.complete.obs"))
+processedBiochemistry$mode1 %>% mutate(comp = Xhat[,bottomIndices[1],1]) %>% ggplot(aes(x=as.factor(GenderID),y=comp)) + geom_boxplot()
+
+############
+
+# Tongue
+temp = processedTongue$mode2 %>%
+  as_tibble() %>%
+  mutate(Component_1 = -1*acmtfr_model60$Fac[[2]][,1]) %>%
+  mutate(Genus = gsub("g__", "", Genus), Species = gsub("s__", "", Species)) %>%
+  mutate(Species = gsub("\\(", "", Species)) %>%
+  mutate(Species = gsub("\\)", "", Species))
+
+fixedSpeciesNames = str_split_fixed(temp$Species, "/", 5) %>% 
+  as_tibble() %>%
+  mutate(dplyr::across(.cols = everything(), .fns = ~ dplyr::if_else(stringr::str_detect(.x, "sp."), "", .x)))
+fixedSpeciesNames[fixedSpeciesNames$V1 == "", "V1"] = "sp."
+fixedSpeciesNames = fixedSpeciesNames %>% 
+  mutate(name=paste0(V1, "/", V2)) %>% 
+  mutate(name=gsub("/$", "", name)) %>% 
+  mutate(name=paste0(name, "/", V3)) %>% 
+  mutate(name=gsub("/$", "", name)) %>% 
+  mutate(name=paste0(name, "/", V4)) %>% 
+  mutate(name=gsub("/$", "", name)) %>% 
+  mutate(name=paste0(name, "/", V5)) %>% 
+  mutate(name=gsub("/$", "", name))
+
+temp$Species = fixedSpeciesNames$name
+temp$name = paste0(temp$Genus, " ", temp$Species)
+temp[temp$name == " sp.", "name"] = "Unclassified"
+temp[temp$name == " ", "name"] = "Unclassified"
+temp[temp$name == " sp.", "name"] = "Unclassified"
+
+temp = temp %>%
+  arrange(Component_1) %>%
+  mutate(index=1:nrow(.)) %>%
+  filter(index %in% c(1:10,231:240))
+
+a=temp %>%
+  ggplot(aes(x=Component_1,y=as.factor(index),fill=as.factor(Phylum))) +
+  geom_bar(stat="identity", col="black") +
+  scale_y_discrete(label=temp$name) +
+  xlab("Loading") +
+  ylab("") +
+  scale_fill_manual(name="Phylum", labels=c("Actinobacteria", "Bacteroidetes", "Firmicutes", "Fusobacteria", "Proteobacteria"), values=hue_pal()(5)) +
+  theme(text=element_text(size=16))
+
+# Saliva comp 1
+temp = processedSaliva$mode2 %>%
+  as_tibble() %>%
+  mutate(Component_1 = -1*acmtfr_model60$Fac[[4]][,1]) %>%
+  mutate(Genus = gsub("g__", "", Genus), Species = gsub("s__", "", Species)) %>%
+  mutate(Species = gsub("\\(", "", Species)) %>%
+  mutate(Species = gsub("\\)", "", Species))
+
+fixedSpeciesNames = str_split_fixed(temp$Species, "/", 5) %>% 
+  as_tibble() %>%
+  mutate(dplyr::across(.cols = everything(), .fns = ~ dplyr::if_else(stringr::str_detect(.x, "sp."), "", .x)))
+fixedSpeciesNames[fixedSpeciesNames$V1 == "", "V1"] = "sp."
+fixedSpeciesNames = fixedSpeciesNames %>% 
+  mutate(name=paste0(V1, "/", V2)) %>% 
+  mutate(name=gsub("/$", "", name)) %>% 
+  mutate(name=paste0(name, "/", V3)) %>% 
+  mutate(name=gsub("/$", "", name)) %>% 
+  mutate(name=paste0(name, "/", V4)) %>% 
+  mutate(name=gsub("/$", "", name)) %>% 
+  mutate(name=paste0(name, "/", V5)) %>% 
+  mutate(name=gsub("/$", "", name))
+
+temp$Species = fixedSpeciesNames$name
+temp$name = paste0(temp$Genus, " ", temp$Species)
+temp[temp$name == " sp.", "name"] = "Unclassified"
+temp[temp$name == " ", "name"] = "Unclassified"
+temp[temp$name == " sp.", "name"] = "Unclassified"
+
+temp = temp %>%
+  arrange(Component_1) %>%
+  mutate(index=1:nrow(.)) %>%
+  filter(index %in% c(1:10,261:270))
+
+b=temp %>%
+  ggplot(aes(x=Component_1,y=as.factor(index),fill=as.factor(Phylum))) +
+  geom_bar(stat="identity", col="black") +
+  scale_y_discrete(label=temp$name) +
+  xlab("Loading") +
+  ylab("") +
+  guides(fill=guide_legend(title="Phylum")) +
+  theme(text=element_text(size=16))
+
+# Cytokines comp 1
+temp = processedCytokines$mode2 %>%
+  mutate(Comp = -1*acmtfr_model60$Fac[[6]][,1]) %>%
+  arrange(Comp) %>%
+  mutate(index=1:nrow(.))
+
+c = temp %>%
+  ggplot(aes(x=Comp,y=as.factor(index))) +
+  geom_bar(stat="identity", col="black") +
+  xlab("Loading") +
+  ylab("") +
+  scale_y_discrete(labels=temp$V1) +
+  theme(text=element_text(size=16))  
+
+# Biochemistry comp 1
+temp = processedBiochemistry$mode2 %>%
+  mutate(Comp = acmtfr_model60$Fac[[8]][,1]) %>%
+  arrange(Comp) %>%
+  mutate(index=1:nrow(.), V1 = )
+
+d = temp %>%
+  ggplot(aes(x=Comp,y=as.factor(index))) +
+  geom_bar(stat="identity", col="black") +
+  xlab("Loading") +
+  ylab("") +
+  scale_y_discrete(labels=temp$V1) +
+  theme(text=element_text(size=16))
+
+ggarrange(a,b,c,d)
+```
+
+```{r plot time loadings}
+a = acmtfr_model60$Fac[[3]][,1] %>% as_tibble() %>% mutate(value=-1*value) %>% mutate(timepoint=c(0,3,6,12)) %>% ggplot(aes(x=timepoint,y=value)) + geom_line() + geom_point() + xlab("Time point [months]") + ylab("Loading") + ylim(0,1)
+
+b = acmtfr_model60$Fac[[5]][,1] %>% as_tibble() %>% mutate(value=-1*value) %>% mutate(timepoint=c(0,3,6,12)) %>% ggplot(aes(x=timepoint,y=value)) + geom_line() + geom_point() + xlab("Time point [months]") + ylab("Loading") + ylim(0,1)
+
+c = acmtfr_model60$Fac[[7]][,1] %>% as_tibble() %>% mutate(value=-1*value) %>% mutate(timepoint=c(0,3,12)) %>% ggplot(aes(x=timepoint,y=value)) + geom_line() + geom_point() + xlab("Time point [months]") + ylab("Loading") + ylim(0,1)
+
+d = acmtfr_model60$Fac[[9]][,1] %>% as_tibble() %>% mutate(value=value) %>% mutate(timepoint=c(0,3,6,12)) %>% ggplot(aes(x=timepoint,y=value)) + geom_line() + geom_point() + xlab("Time point [months]") + ylab("Loading") + ylim(0,1)
+
+ggarrange(a,c,b,d, nrow=2, ncol=2)
+```

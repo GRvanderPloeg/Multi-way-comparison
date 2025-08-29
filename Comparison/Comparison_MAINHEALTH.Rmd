@@ -1,0 +1,412 @@
+---
+title: "Comparison"
+output: html_document
+date: "2025-07-01"
+---
+
+```{r setup}
+library(tidyverse)
+library(forcats)
+library(ggplot2)
+library(ggpubr)
+library(stringr)
+library(parafac4microbiome)
+library(NPLStoolbox)
+library(CMTFtoolbox)
+library(vegan)
+library(scales)
+library(ggrepel)
+```
+
+# Useful functions
+
+```{r functions}
+calculateTCC = function(vect1, vect2){
+  
+  vect1 = as.matrix(vect1)
+  vect2 = as.matrix(vect2)
+  FMS = abs(t(vect1) %*% vect2) / (norm(vect1, "F") * norm(vect2, "F"))
+  return(FMS)
+}
+```
+
+# MAINHEALTH
+
+## Processing
+
+```{r cp processing}
+processedFaeces_cp = parafac4microbiome::processDataCube(NPLStoolbox::Jakobsen2025$faeces, sparsityThreshold = 0.75, centerMode=1, scaleMode=2)
+processedMilk_cp = parafac4microbiome::processDataCube(NPLStoolbox::Jakobsen2025$milkMicrobiome, sparsityThreshold=0.85, centerMode=1, scaleMode=2)
+processedMilkMetab_cp = parafac4microbiome::processDataCube(NPLStoolbox::Jakobsen2025$milkMetabolomics, CLR=FALSE, centerMode=1, scaleMode=2)
+```
+
+```{r npls processing}
+# Faeces
+newFaeces = NPLStoolbox::Jakobsen2025$faeces
+
+mask = newFaeces$mode1$subject %in% (NPLStoolbox::Jakobsen2025$faeces$mode1 %>% filter(!is.na(BMI)) %>% select(subject) %>% pull())
+newFaeces$data = newFaeces$data[mask,,]
+newFaeces$mode1 = newFaeces$mode1[mask,]
+processedFaeces_npls = parafac4microbiome::processDataCube(newFaeces, sparsityThreshold = 0.75, centerMode=1, scaleMode=2)
+
+# Milk
+newMilk = NPLStoolbox::Jakobsen2025$milkMicrobiome
+
+mask = newMilk$mode1$subject %in% (NPLStoolbox::Jakobsen2025$milkMicrobiome$mode1 %>% filter(!is.na(BMI)) %>% select(subject) %>% pull())
+newMilk$data = newMilk$data[mask,,]
+newMilk$mode1 = newMilk$mode1[mask,]
+processedMilk_npls = parafac4microbiome::processDataCube(newMilk, sparsityThreshold=0.85, centerMode=1, scaleMode=2)
+
+# Milk metab
+newMilkMetab = NPLStoolbox::Jakobsen2025$milkMetabolomics
+
+mask = newMilkMetab$mode1$subject %in% (NPLStoolbox::Jakobsen2025$milkMetabolomics$mode1 %>% filter(!is.na(BMI)) %>% select(subject) %>% pull())
+newMilkMetab$data = newMilkMetab$data[mask,,]
+newMilkMetab$mode1 = newMilkMetab$mode1[mask,]
+processedMilkMetab_npls = parafac4microbiome::processDataCube(newMilkMetab, CLR=FALSE, centerMode=1, scaleMode=2)
+```
+
+```{r acmtf and acmtf-r processing}
+homogenizedSamples = intersect(intersect(NPLStoolbox::Jakobsen2025$faeces$mode1 %>% filter(!is.na(BMI)) %>% select(subject) %>% pull(), NPLStoolbox::Jakobsen2025$milkMicrobiome$mode1 %>% filter(!is.na(BMI)) %>% select(subject) %>% pull()), NPLStoolbox::Jakobsen2025$milkMetabolomics$mode1 %>% filter(!is.na(BMI)) %>% select(subject) %>% pull())
+
+# Faeces
+newFaeces = NPLStoolbox::Jakobsen2025$faeces
+
+mask = newFaeces$mode1$subject %in% homogenizedSamples
+newFaeces$data = newFaeces$data[mask,,]
+newFaeces$mode1 = newFaeces$mode1[mask,]
+processedFaeces_acmtf = parafac4microbiome::processDataCube(newFaeces, sparsityThreshold = 0.75, centerMode=1, scaleMode=2)
+
+# Milk
+newMilk = NPLStoolbox::Jakobsen2025$milkMicrobiome
+
+mask = newMilk$mode1$subject %in% homogenizedSamples
+newMilk$data = newMilk$data[mask,,]
+newMilk$mode1 = newMilk$mode1[mask,]
+processedMilk_acmtf = parafac4microbiome::processDataCube(newMilk, sparsityThreshold=0.85, centerMode=1, scaleMode=2)
+
+# Milk metab
+newMilkMetab = NPLStoolbox::Jakobsen2025$milkMetabolomics
+
+mask = newMilkMetab$mode1$subject %in% homogenizedSamples
+newMilkMetab$data = newMilkMetab$data[mask,,]
+newMilkMetab$mode1 = newMilkMetab$mode1[mask,]
+processedMilkMetab_acmtf = parafac4microbiome::processDataCube(newMilkMetab, CLR=FALSE, centerMode=1, scaleMode=2)
+```
+
+## Import models
+
+```{r load models}
+cp_faeces = readRDS("../MAINHEALTH/cp_faeces.RDS")
+cp_milk = readRDS("../MAINHEALTH/cp_milk.RDS")
+cp_milkMetab = readRDS("../MAINHEALTH/cp_milkMetab.RDS")
+
+npls_faeces = readRDS("../MAINHEALTH/20250702_NPLS_faecal_bmi.RDS")
+npls_milk = readRDS("../MAINHEALTH/20250702_NPLS_milk_bmi.RDS")
+npls_milkMetab = readRDS("../MAINHEALTH/20250702_NPLS_milkMetab_bmi.RDS")
+
+acmtf_model = readRDS("../MAINHEALTH/ACMTF_model_bmi.RDS")
+acmtfr_model = readRDS("../MAINHEALTH/ACMTFR_model_bmi85.RDS")
+```
+
+## VarExp table
+
+```{r varExp table}
+cp_faeces$varExp
+cp_milk$varExp
+cp_milkMetab$varExp
+
+npls_faeces$varExpX
+npls_faeces$varExpY
+npls_milk$varExpX
+npls_milk$varExpY
+npls_milkMetab$varExpX
+npls_milkMetab$varExpY
+
+acmtf_model$varExp
+
+# Calculate varExpY of ACMTF
+A = acmtf_model$Fac[[1]]
+Y = processedFaeces_acmtf$mode1$BMI
+Y = Y - mean(Y)
+rho = solve(t(A) %*% A) %*% t(A) %*% Y
+Yhat = A %*% rho
+acmtf_model$varExpY = (multiway::sumsq(Yhat) / multiway::sumsq(Y)) * 100
+acmtf_model$varExpY
+
+acmtfr_model$varExp
+acmtfr_model$varExpY
+```
+
+## Test against metadata
+
+```{r metadata test table for mode A}
+testMetadata = function(model, comp, metadata){
+  transformedSubjectLoadings = model$Fac[[1]][,comp]
+  transformedSubjectLoadings = transformedSubjectLoadings / norm(transformedSubjectLoadings, "2")
+  
+  result = lm(transformedSubjectLoadings ~ BMI + C.section + Secretor + Lewis + whz.6m, data=metadata$mode1)
+  
+  # Extract coefficients and confidence intervals
+  coef_estimates <- summary(result)$coefficients
+  conf_intervals <- confint(result)
+  
+  # Remove intercept
+  coef_estimates <- coef_estimates[rownames(coef_estimates) != "(Intercept)", ]
+  conf_intervals <- conf_intervals[rownames(conf_intervals) != "(Intercept)", ]
+  
+  # Combine into a clean data frame
+  summary_table <- data.frame(
+    Term     = rownames(coef_estimates),
+    Estimate = coef_estimates[, "Estimate"] * 1e3,
+    CI       = paste0(
+                 conf_intervals[, 1], " – ",
+                 conf_intervals[, 2]
+               ),
+    P_value  = coef_estimates[, "Pr(>|t|)"],
+    P_adjust = p.adjust(coef_estimates[, "Pr(>|t|)"], "BH"),
+    row.names = NULL
+  )
+  
+  return(summary_table)
+}
+
+testMetadata(cp_faeces, 1, processedFaeces_cp)
+testMetadata(cp_milk, 1, processedMilk_cp)
+testMetadata(cp_milkMetab, 1, processedMilkMetab_cp)
+
+testMetadata(npls_faeces, 1, processedFaeces_npls)
+testMetadata(npls_milk, 1, processedMilk_npls)
+testMetadata(npls_milkMetab, 1, processedMilkMetab_npls)
+
+testMetadata(acmtf_model, 1, processedFaeces_acmtf)
+
+testMetadata(acmtfr_model, 1, processedFaeces_acmtf)
+```
+
+## Comparison
+
+```{r compare models using FMS}
+plotlistFMS = list()
+plotlistA = list()
+plotlistB = list()
+plotlistC = list()
+iterator = 1
+midpoint = 0.50
+size = 4
+
+# Faeces
+CPmeta = processedFaeces_cp
+NPLSmeta = processedFaeces_npls
+ACMTFmeta = processedFaeces_acmtf
+cp_model = cp_faeces
+npls_model = npls_faeces
+acmtf_mode = 2
+
+part1 = cbind(CPmeta$mode1, cp_model$Fac[[1]])
+colnames(part1) = c("subject", "BMI", "BMI.group", "C.section", "Secretor", "Lewis", "whz.6m", paste0("CP (", 1:ncol(cp_model$Fac[[1]]), ")"))
+part2 = cbind(NPLSmeta$mode1, npls_model$Fac[[1]])
+colnames(part2) = c("subject", "BMI", "BMI.group", "C.section", "Secretor", "Lewis", "whz.6m", paste0("NPLS (", 1:ncol(npls_model$Fac[[1]]), ")"))
+part3 = cbind(ACMTFmeta$mode1, acmtf_model$Fac[[1]], acmtfr_model$Fac[[1]])
+colnames(part3) = c("subject", "BMI", "BMI.group", "C.section", "Secretor", "Lewis", "whz.6m", paste0("ACMTF (", 1:ncol(acmtf_model$Fac[[1]]), ")"), paste0("ACMTFR (", 1:ncol(acmtfr_model$Fac[[1]]), ")"))
+A = part1 %>% inner_join(part2) %>% inner_join(part3) %>% select(-subject, -BMI, -BMI.group, -C.section, -Secretor, -Lewis, -whz.6m) %>% as.data.frame()
+
+part1 = cbind(CPmeta$mode2, cp_model$Fac[[2]], npls_model$Fac[[2]])
+colnames(part1) = c("OTU", "Kingdom", "Phylum", "Class", "Order", "Family", "Genus", "Species", paste0("CP (", 1:ncol(cp_model$Fac[[1]]), ")"), paste0("NPLS (", 1:ncol(npls_model$Fac[[1]]), ")"))
+part2 = cbind(ACMTFmeta$mode2, acmtf_model$Fac[[acmtf_mode]], acmtfr_model$Fac[[acmtf_mode]])
+colnames(part2) = c("OTU", "Kingdom", "Phylum", "Class", "Order", "Family", "Genus", "Species", paste0("ACMTF (", 1:ncol(acmtf_model$Fac[[1]]), ")"), paste0("ACMTF-R (", 1:ncol(acmtfr_model$Fac[[1]]), ")"))
+B = part1 %>% inner_join(part2) %>% select(-OTU, -Kingdom, -Phylum, -Class, -Order, -Family, -Genus, -Species) %>% as.data.frame()
+C = cbind(cp_model$Fac[[3]], npls_model$Fac[[3]], acmtf_model$Fac[[acmtf_mode+1]], acmtfr_model$Fac[[acmtf_mode+1]])
+
+TCC_A = matrix(NA, nrow=ncol(A), ncol=ncol(A))
+TCC_B = matrix(NA, nrow=ncol(B), ncol=ncol(B))
+TCC_C = matrix(NA, nrow=ncol(C), ncol=ncol(C))
+for(i in 1:ncol(B)){
+  for(j in 1:ncol(B)){
+    TCC_A[i,j] = calculateTCC(A[,i], A[,j])
+    TCC_B[i,j] = calculateTCC(B[,i], B[,j])
+    TCC_C[i,j] = calculateTCC(C[,i], C[,j])
+  }
+}
+
+labels = c(paste0("CP (", 1:ncol(cp_model$Fac[[1]]), ")"), paste0("NPLS (", 1:ncol(npls_model$Fac[[1]]), ")"), paste0("ACMTF (", 1:ncol(acmtf_model$Fac[[1]]), ")"), paste0("ACMTF-R (", 1:ncol(acmtfr_model$Fac[[1]]), ")"))
+
+FMS = (TCC_A * TCC_B * TCC_C)
+diag(FMS) = NA
+FMS[lower.tri(FMS)] = NA
+plotlistFMS[[iterator]] = FMS %>%
+  as_tibble() %>%
+  mutate(model = paste0("V", 1:ncol(A))) %>%
+  pivot_longer(-model) %>%
+  ggplot(aes(x=as.factor(model),y=as.factor(name),fill=value)) +
+  geom_tile(col="black") +
+  geom_text(aes(label = sprintf("%.2f", value)), size = size) +
+  scale_x_discrete(name="", labels=labels) +
+  scale_y_discrete(name="", labels=labels) +
+  scale_fill_gradient(name="FMS", low="#FFFFFF", high="#1B7837", na.value="black", limits=c(0,1.01)) +
+  theme(legend.position="na", axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1), text=element_text(size=16))
+
+combinedTCC = matrix(NA, nrow=nrow(TCC_A), ncol=ncol(TCC_A))
+combinedTCC[upper.tri(combinedTCC)] = TCC_A[upper.tri(TCC_A)]
+combinedTCC[lower.tri(combinedTCC)] = TCC_B[lower.tri(TCC_B)]
+plotlistA[[iterator]] = combinedTCC %>%
+  as_tibble() %>%
+  mutate(model = paste0("V", 1:ncol(A))) %>%
+  pivot_longer(-model) %>%
+  ggplot(aes(x=as.factor(model),y=as.factor(name),fill=value)) +
+  geom_tile(col="black") +
+  geom_text(aes(label = sprintf("%.2f", value)), size = size) +
+  scale_x_discrete(name="", labels=labels) +
+  scale_y_discrete(name="", labels=labels) +
+  scale_fill_gradient(name="TCC", low="#FFFFFF", high="#1B7837", na.value="black", limits=c(0,1.01)) +
+  theme(legend.position="na", axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1), text=element_text(size=16))
+
+iterator = iterator + 1
+
+# HM microbiome
+CPmeta = processedMilk_cp
+NPLSmeta = processedMilk_npls
+ACMTFmeta = processedMilk_acmtf
+cp_model = cp_milk
+npls_model = npls_milk
+acmtf_mode = 4
+
+part1 = cbind(CPmeta$mode1, cp_model$Fac[[1]])
+colnames(part1) = c("subject", "BMI", "BMI.group", "C.section", "Secretor", "Lewis", "whz.6m", paste0("CP (", 1:ncol(cp_model$Fac[[1]]), ")"))
+part2 = cbind(NPLSmeta$mode1, npls_model$Fac[[1]])
+colnames(part2) = c("subject", "BMI", "BMI.group", "C.section", "Secretor", "Lewis", "whz.6m", paste0("NPLS (", 1:ncol(npls_model$Fac[[1]]), ")"))
+part3 = cbind(ACMTFmeta$mode1, acmtf_model$Fac[[1]], acmtfr_model$Fac[[1]])
+colnames(part3) = c("subject", "BMI", "BMI.group", "C.section", "Secretor", "Lewis", "whz.6m", paste0("ACMTF (", 1:ncol(acmtf_model$Fac[[1]]), ")"), paste0("ACMTFR (", 1:ncol(acmtfr_model$Fac[[1]]), ")"))
+A = part1 %>% inner_join(part2) %>% inner_join(part3) %>% select(-subject, -BMI, -BMI.group, -C.section, -Secretor, -Lewis, -whz.6m) %>% as.data.frame()
+
+part1 = cbind(CPmeta$mode2, cp_model$Fac[[2]], npls_model$Fac[[2]])
+colnames(part1) = c("OTU", "Kingdom", "Phylum", "Class", "Order", "Family", "Genus", "Species", paste0("CP (", 1:ncol(cp_model$Fac[[1]]), ")"), paste0("NPLS (", 1:ncol(npls_model$Fac[[1]]), ")"))
+part2 = cbind(ACMTFmeta$mode2, acmtf_model$Fac[[acmtf_mode]], acmtfr_model$Fac[[acmtf_mode]])
+colnames(part2) = c("OTU", "Kingdom", "Phylum", "Class", "Order", "Family", "Genus", "Species", paste0("ACMTF (", 1:ncol(acmtf_model$Fac[[1]]), ")"), paste0("ACMTF-R (", 1:ncol(acmtfr_model$Fac[[1]]), ")"))
+B = part1 %>% inner_join(part2) %>% select(-OTU, -Kingdom, -Phylum, -Class, -Order, -Family, -Genus, -Species) %>% as.data.frame()
+C = cbind(cp_model$Fac[[3]], npls_model$Fac[[3]], acmtf_model$Fac[[acmtf_mode+1]], acmtfr_model$Fac[[acmtf_mode+1]])
+
+TCC_A = matrix(NA, nrow=ncol(A), ncol=ncol(A))
+TCC_B = matrix(NA, nrow=ncol(B), ncol=ncol(B))
+TCC_C = matrix(NA, nrow=ncol(C), ncol=ncol(C))
+for(i in 1:ncol(B)){
+  for(j in 1:ncol(B)){
+    TCC_A[i,j] = calculateTCC(A[,i], A[,j])
+    TCC_B[i,j] = calculateTCC(B[,i], B[,j])
+    TCC_C[i,j] = calculateTCC(C[,i], C[,j])
+  }
+}
+
+labels = c(paste0("CP (", 1:ncol(cp_model$Fac[[1]]), ")"), paste0("NPLS (", 1:ncol(npls_model$Fac[[1]]), ")"), paste0("ACMTF (", 1:ncol(acmtf_model$Fac[[1]]), ")"), paste0("ACMTF-R (", 1:ncol(acmtfr_model$Fac[[1]]), ")"))
+
+FMS = (TCC_A * TCC_B * TCC_C)
+diag(FMS) = NA
+FMS[lower.tri(FMS)] = NA
+plotlistFMS[[iterator]] = FMS %>%
+  as_tibble() %>%
+  mutate(model = paste0("V", 1:ncol(A))) %>%
+  pivot_longer(-model) %>%
+  ggplot(aes(x=as.factor(model),y=as.factor(name),fill=value)) +
+  geom_tile(col="black") +
+  geom_text(aes(label = sprintf("%.2f", value)), size = size) +
+  scale_x_discrete(name="", labels=labels) +
+  scale_y_discrete(name="", labels=labels) +
+  scale_fill_gradient(name="FMS", low="#FFFFFF", high="#1B7837", na.value="black", limits=c(0,1.01)) +
+  theme(legend.position="na", axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1), text=element_text(size=16))
+
+combinedTCC = matrix(NA, nrow=nrow(TCC_A), ncol=ncol(TCC_A))
+combinedTCC[upper.tri(combinedTCC)] = TCC_A[upper.tri(TCC_A)]
+combinedTCC[lower.tri(combinedTCC)] = TCC_B[lower.tri(TCC_B)]
+plotlistA[[iterator]] = combinedTCC %>%
+  as_tibble() %>%
+  mutate(model = paste0("V", 1:ncol(A))) %>%
+  pivot_longer(-model) %>%
+  ggplot(aes(x=as.factor(model),y=as.factor(name),fill=value)) +
+  geom_tile(col="black") +
+  geom_text(aes(label = sprintf("%.2f", value)), size = size) +
+  scale_x_discrete(name="", labels=labels) +
+  scale_y_discrete(name="", labels=labels) +
+  scale_fill_gradient(name="TCC", low="#FFFFFF", high="#1B7837", na.value="black", limits=c(0,1.01)) +
+  theme(legend.position="na", axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1), text=element_text(size=16))
+
+iterator = iterator + 1
+
+# HM metabolomics
+CPmeta = processedMilkMetab_cp
+NPLSmeta = processedMilkMetab_npls
+ACMTFmeta = processedMilkMetab_acmtf
+cp_model = cp_milkMetab
+npls_model = npls_milkMetab
+acmtf_mode = 6
+
+part1 = cbind(CPmeta$mode1, cp_model$Fac[[1]])
+colnames(part1) = c("subject", "BMI", "BMI.group", "C.section", "Secretor", "Lewis", "whz.6m", paste0("CP (", 1:ncol(cp_model$Fac[[1]]), ")"))
+part2 = cbind(NPLSmeta$mode1, npls_model$Fac[[1]])
+colnames(part2) = c("subject", "BMI", "BMI.group", "C.section", "Secretor", "Lewis", "whz.6m", paste0("NPLS (", 1:ncol(npls_model$Fac[[1]]), ")"))
+part3 = cbind(ACMTFmeta$mode1, acmtf_model$Fac[[1]], acmtfr_model$Fac[[1]])
+colnames(part3) = c("subject", "BMI", "BMI.group", "C.section", "Secretor", "Lewis", "whz.6m", paste0("ACMTF (", 1:ncol(acmtf_model$Fac[[1]]), ")"), paste0("ACMTFR (", 1:ncol(acmtfr_model$Fac[[1]]), ")"))
+A = part1 %>% inner_join(part2) %>% inner_join(part3) %>% select(-subject, -BMI, -BMI.group, -C.section, -Secretor, -Lewis, -whz.6m) %>% as.data.frame()
+
+part1 = cbind(CPmeta$mode2, cp_model$Fac[[2]], npls_model$Fac[[2]])
+colnames(part1) = c("CAS.Registry", "Metabolite", "Class", paste0("CP (", 1:ncol(cp_model$Fac[[1]]), ")"), paste0("NPLS (", 1:ncol(npls_model$Fac[[1]]), ")"))
+part2 = cbind(ACMTFmeta$mode2, acmtf_model$Fac[[acmtf_mode]], acmtfr_model$Fac[[acmtf_mode]])
+colnames(part2) = c("CAS.Registry", "Metabolite", "Class", paste0("ACMTF (", 1:ncol(acmtf_model$Fac[[1]]), ")"), paste0("ACMTF-R (", 1:ncol(acmtfr_model$Fac[[1]]), ")"))
+B = part1 %>% inner_join(part2) %>% select(-CAS.Registry, -Metabolite, -Class) %>% as.data.frame()
+C = cbind(cp_model$Fac[[3]], npls_model$Fac[[3]], acmtf_model$Fac[[acmtf_mode+1]], acmtfr_model$Fac[[acmtf_mode+1]])
+
+TCC_A = matrix(NA, nrow=ncol(A), ncol=ncol(A))
+TCC_B = matrix(NA, nrow=ncol(B), ncol=ncol(B))
+TCC_C = matrix(NA, nrow=ncol(C), ncol=ncol(C))
+for(i in 1:ncol(B)){
+  for(j in 1:ncol(B)){
+    TCC_A[i,j] = calculateTCC(A[,i], A[,j])
+    TCC_B[i,j] = calculateTCC(B[,i], B[,j])
+    TCC_C[i,j] = calculateTCC(C[,i], C[,j])
+  }
+}
+
+labels = c(paste0("CP (", 1:ncol(cp_model$Fac[[1]]), ")"), paste0("NPLS (", 1:ncol(npls_model$Fac[[1]]), ")"), paste0("ACMTF (", 1:ncol(acmtf_model$Fac[[1]]), ")"), paste0("ACMTF-R (", 1:ncol(acmtfr_model$Fac[[1]]), ")"))
+
+FMS = (TCC_A * TCC_B * TCC_C)
+diag(FMS) = NA
+FMS[lower.tri(FMS)] = NA
+plotlistFMS[[iterator]] = FMS %>%
+  as_tibble() %>%
+  mutate(model = paste0("V", 1:ncol(A))) %>%
+  pivot_longer(-model) %>%
+  ggplot(aes(x=as.factor(model),y=as.factor(name),fill=value)) +
+  geom_tile(col="black") +
+  geom_text(aes(label = sprintf("%.2f", value)), size = size) +
+  scale_x_discrete(name="", labels=labels) +
+  scale_y_discrete(name="", labels=labels) +
+  scale_fill_gradient(name="FMS", low="#FFFFFF", high="#1B7837", na.value="black", limits=c(0,1.01)) +
+  theme(legend.position="na", axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1), text=element_text(size=16))
+
+combinedTCC = matrix(NA, nrow=nrow(TCC_A), ncol=ncol(TCC_A))
+combinedTCC[upper.tri(combinedTCC)] = TCC_A[upper.tri(TCC_A)]
+combinedTCC[lower.tri(combinedTCC)] = TCC_B[lower.tri(TCC_B)]
+plotlistA[[iterator]] = combinedTCC %>%
+  as_tibble() %>%
+  mutate(model = paste0("V", 1:ncol(A))) %>%
+  pivot_longer(-model) %>%
+  ggplot(aes(x=as.factor(model),y=as.factor(name),fill=value)) +
+  geom_tile(col="black") +
+  geom_text(aes(label = sprintf("%.2f", value)), size = size) +
+  scale_x_discrete(name="", labels=labels) +
+  scale_y_discrete(name="", labels=labels) +
+  scale_fill_gradient(name="TCC", low="#FFFFFF", high="#1B7837", na.value="black", limits=c(0,1.01)) +
+  theme(legend.position="na", axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1), text=element_text(size=16))
+
+iterator = iterator + 1
+
+# ggarrange(plotlist=plotlistFMS)
+# ggarrange(plotlist=plotlistA)
+# ggarrange(plotlist=plotlistB)
+# ggarrange(plotlist=plotlistC)
+
+ggarrange(plotlistFMS[[1]], plotlistA[[1]], nrow=1, ncol=2)
+ggarrange(plotlistFMS[[2]], plotlistA[[2]], nrow=1, ncol=2)
+ggarrange(plotlistFMS[[3]], plotlistA[[3]], nrow=1, ncol=2)
+```
+
+
